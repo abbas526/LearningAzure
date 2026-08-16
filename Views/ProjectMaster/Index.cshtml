@@ -1,0 +1,505 @@
+﻿@{
+    ViewBag.Title = "Index";
+}
+<script src="~/Scripts/jquery-3.4.1.js"></script>
+<link href="~/Scripts/jquery-ui-1.12.1.min.css" rel="stylesheet" />
+<link href="~/Content/Purchase.css" rel="stylesheet" />
+<script src="~/Scripts/jquery-ui-1.12.1.min.js"></script>
+<script src="~/Scripts/jquery.validate.min-1.19.js"></script>
+<script src="~/Scripts/form-validation.js"></script>
+
+
+<script type="text/javascript">
+
+    $(document).ready(function () {
+
+        @*$("#ProjectName").autocomplete({
+            source: function (request, response) {
+                $.ajax({
+                    url: '@Url.Action("GetSearchValue","ProjectMaster")',
+                    dataType: "json",
+                    data: { search: $("#ProjectName").val() },
+                    success: function (data) {
+
+                        response($.map(data, function (item) {
+                            return { label: item, value: item };
+                        }));
+                    },
+                    error: function (xhr, status, error) {
+                        alert("Error");
+                    }
+                });
+            }
+        });*@
+
+      $.ajax({
+           type: "GET",
+           url: '@Url.Action("GetAllProjectNames","ProjectMaster")',
+           success: function (data) {
+               var s = '<option value="">--Select--</option>';
+               for (var i = 0; i < data.length; i++) {
+                   s += '<option value="' + data[i] + '">' + data[i] + '</option>';
+               }
+               $("#ProjectName").html(s);
+           }
+      });
+    });
+
+</script>
+
+<script>
+    function ShowSaveSuccess() {
+        $("#message").text('Record Saved Successfully');
+        alert('Record Saved Successfully');
+        setTimeout(function () { $("#message").hide(); }, 5000);
+        $('#errormessage').html('');
+    }
+
+    function AddData() {
+        if ($('#NewProjectName').val() == "") {
+            alert('Please enter New Project Name');
+            return false;
+        }
+        //Serialize the form data.
+        var valdata = $("#ProjectForm").serialize();
+        //to get alert popup
+        $.ajax({
+            url: '@Url.Action("SaveProject","ProjectMaster")',
+            type: "POST",
+            dataType: 'json',
+            contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+            data: valdata,
+            success: function (data) {
+                if (data.Result.includes('Error')) {
+                    alert(data.Result);
+                }
+                else {
+                    ShowSaveSuccess(data.Result);
+                }
+            },
+            error: function (ex) {
+                console.log(ex);
+            }
+        });
+    }
+    function SaveData() {
+
+        if (ValidateForm() == false) {
+            return false;
+        }
+            //Serialize the form datas.
+            var valdata = $("#ProjectForm").serialize();
+            //to get alert popup
+            $.ajax({
+                url: '@Url.Action("SaveProject","ProjectMaster")',
+                type: "POST",
+                dataType: 'json',
+                contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+                data: valdata,
+                success: function (data) {
+                    if (data.Result.includes('Error')) {
+                        alert(data.Result);
+                    }
+                    else {
+                        ShowSaveSuccess(data.Result);
+                    }
+                },
+                error: function (ex) {
+                    console.log(ex);
+                }
+            });
+        //ShowSaveSuccess();
+        //$('#btnSave').prop('disabled', true);
+    }
+
+    function ValidateForm() {
+
+	    var message = "";
+
+        if ($('#ProjectName').val() == "")
+        {
+            message += 'Project Name' + '<br>';
+        }
+        if ($('#IsActive').val() == "") {
+            message += 'IsActive' + '<br>';
+        }
+        if (message != "") {
+            $('#errormessage').html("* <b>Please fill below values</b> <br><br>" + message + "<br>");
+            return false;
+        }
+        else {
+            $('#errormessage').html('');
+        }
+        return true;
+    }
+
+   function LoadData() {
+        $.ajax({
+            type: 'GET',
+            url: '@Url.Action("GetProject", "ProjectMaster")',
+            dataType: 'json',
+            data: { projectName: $('#ProjectName').val() },
+            success: function (data) {
+                if (data == 'Not Found') {
+                    alert('Project Not found');
+                }
+                else {
+                    $('#ProjectName').val(data.ProjectName);
+                    $('#IsActive').val(data.IsActive);
+                }
+
+            },
+            error: function (ex) {
+                alert('Vendor Not Found');
+                console.log(ex);
+            }
+
+        });
+    }
+
+    function CloneProject() {
+
+        if ($('#ProjectName').val() == "") {
+            $('#errormessage').html("* <b>Please enter/select a existing project name to copy from</b> <br><br>");
+            return false;
+        }
+        else {
+            $('#errormessage').html("");
+        }
+
+        let confirmAction = confirm("Are you sure you want to Copy the Project and associated PRs ?");
+        if (confirmAction == false) {
+            return false;
+        }
+            //Serialize the form datas.
+            var valdata = $("#ProjectForm").serialize();
+            //to get alert popup
+            $.ajax({
+                url: '@Url.Action("CloneProject","ProjectMaster")',
+                type: "POST",
+                dataType: 'json',
+                contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+                data: valdata,
+                success: function (data) {
+                    if (data.Result.includes('Error')) {
+                        alert(data.Result);
+                    }
+                    else {
+                        ShowSaveSuccess(data.Result);
+                    }
+                },
+                error: function (ex) {
+                    console.log(ex);
+                }
+            });
+        //ShowSaveSuccess();
+        //$('#btnSave').prop('disabled', true);
+    }
+
+    function UploadPR() {
+        if ($('#ProjectName').val() == "") {
+            alert('Please enter a existing project name.')
+            $('#ProjectName').focus();
+            return false;
+        }
+        var fileUpload = $("#PRFileUpload").get(0);
+        var files = fileUpload.files;
+
+        // Create FormData object
+        var fileData = new FormData();
+
+        // Looping over all files and add it to FormData object
+        for (var i = 0; i < files.length; i++) {
+            fileData.append(files[i].name, files[i]);
+        }
+
+        // Adding one more key to FormData object
+        fileData.append('projectname', $('#ProjectName').val());
+
+        $.ajax({
+            url: '/ProjectMaster/UploadPRFile',
+            type: "POST",
+            contentType: false, // Not to set any content header
+            processData: false, // Not to process data
+            data: fileData,
+            success: function (result) {
+
+                alert(result);
+            },
+            error: function (err) {
+                alert(err.statusText);
+            }
+        });
+    }
+</script>
+<div class="container mt-4">
+
+    <div class="card shadow-lg p-4">
+        <h4 class="mb-4 text-primary">Project Management</h4>
+
+        <form id="ProjectForm">
+
+            <!-- ================= Existing Project ================= -->
+            <div class="card custom-card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title text-primary mb-4">
+                        <i class="glyphicon glyphicon-folder-open"></i>
+                        Existing Project
+                    </h5>
+
+                    <div class="row align-items-end">
+
+                        <div class="col-md-5">
+                            <label class="form-label required">Project Name</label>
+                            <div class="input-group">
+                                <select class="form-control" id="ProjectName" name="ProjectName"></select>
+                                <span class="input-group-btn">
+                                    <button class="btn btn-info" type="button" onclick="LoadData();">
+                                        <i class="glyphicon glyphicon-search"></i>
+                                    </button>
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label required">Active</label>
+                            <select class="form-control" name="IsActive" id="IsActive">
+                                <option value="">--Select--</option>
+                                <option value="yes">Yes</option>
+                                <option value="no">No</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-3">
+                            <button type="button"
+                                    id="btnSave"
+                                    class="btn btn-primary w-100"
+                                    onclick="SaveData();">
+                                Save Existing Project
+                            </button>
+                        </div>
+
+                    </div>
+
+                    <div id="message" class="text-success mt-3"></div>
+                </div>
+            </div>
+            <br>
+
+            <div class="row mt-4">
+
+                <!-- ================= Add New Project ================= -->
+                <div class="col-md-6">
+                    <div class="card custom-card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title mb-3 text-success">
+                                <i class="glyphicon glyphicon-plus"></i>
+                                Add New Project
+                            </h5>
+
+                            <div class="mb-3">
+                                <label class="form-label">New Project Name</label>
+                                <input type="text"
+                                       id="NewProjectName"
+                                       name="NewProjectName"
+                                       placeholder="Enter new project name"
+                                       class="form-control">
+                            </div>
+
+                            <button type="button"
+                                    id="btnAdd"
+                                    class="btn btn-success w-100"
+                                    onclick="AddData();">
+                                Save New Project
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- ================= Clone Project ================= -->
+                <div class="col-md-6">
+                    <div class="card custom-card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title mb-3 text-warning">
+                                <i class="glyphicon glyphicon-duplicate"></i>
+                                Clone Project
+                            </h5>
+
+                            <div class="mb-3">
+                                <label class="form-label">New Project Name</label>
+                                <input type="text"
+                                       id="CloneProjectName"
+                                       name="CloneProjectName"
+                                       placeholder="Enter cloned project name"
+                                       class="form-control">
+                            </div>
+
+                            <button type="button"
+                                    id="btnClone"
+                                    class="btn btn-warning w-100"
+                                    onclick="CloneProject();">
+                                Copy Existing Project
+                            </button>
+
+                            <div class="alert alert-danger mt-3 small">
+                                This will duplicate all PRs from the selected project.
+                                PR Date and Required Date will default to today.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+
+
+            <!-- ================= Bulk Upload ================= -->
+            <div class="card custom-card mt-4">
+                <div class="card-body">
+                    <h5 class="card-title text-info mb-4">
+                        <i class="glyphicon glyphicon-upload"></i>
+                        Bulk PR Upload
+                    </h5>
+
+                    <div class="row align-items-end">
+
+                        <div class="col-md-5">
+                            <label class="form-label">Upload File</label>
+                            <input type="file"
+                                   id="PRFileUpload"
+                                   name="PRFileUpload"
+                                   class="form-control">
+                        </div>
+
+                        <div class="col-md-3">
+                            <button type="button"
+                                    id="btnFileUpload"
+                                    class="btn btn-info w-100"
+                                    onclick="UploadPR();">
+                                Upload PRs
+                            </button>
+                        </div>
+
+                        <div class="col-md-4">
+                            <a class="btn btn-outline-secondary w-100"
+                               href="@Url.Action("GetSampleExcel", "ProjectMaster")">
+                                Download Template
+                            </a>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+
+
+            <div id="errormessage" class="alert alert-danger mt-4 d-none"></div>
+
+        </form>
+    </div>
+
+</div>
+
+<!--<div class="container">
+    <form class="form-horizontal" role="form" name="ProjectForm" id="ProjectForm">
+        <br /><br />
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="PR" class="col-sm-3 control-label required">Project Name</label>
+                <div class="col-sm-6">
+                    <select class="form-control" id="ProjectName" name="ProjectName"></select>
+                </div>
+                <div class="col-sm-2">
+                    <a href="#" onclick="LoadData();" title="Search Project" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
+                        <i class="glyphicon glyphicon-search"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                &nbsp;&nbsp;
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="PR" class="col-sm-3 control-label required">Active</label>
+                <div class="col-sm-4">
+                    <select name="IsActive" id="IsActive">
+                        <option value="">--Select--</option>
+                        <option value="yes">yes</option>
+                        <option value="no">no</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                &nbsp;
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6"">
+                <input type="button" id="btnSave" name="btnSave" value="Save Existing Project" onclick="SaveData();" />
+                &nbsp;&nbsp;
+                <div id="message" name="message" class="success"></div>
+            </div>
+            <div class="form-group col-md-6">
+                &nbsp;
+            </div>
+        </div>
+        <div class="row">
+            <hr />
+            <b>---Adding New Project Section---</b>
+            <br />
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="PR" class="col-sm-3 control-label">New Project</label>
+                <div class="col-sm-6">
+                    <input type="text" id="NewProjectName" name="NewProjectName" placeholder="New Project Name" class="form-control">
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                <input type="button" id="btnAdd" name="btnAdd" value="Save New Project" onclick="AddData();" />&nbsp;&nbsp;
+            </div>
+        </div>
+
+        <div class="row">
+            <hr />
+            <b>---Project Cloning Section---</b>
+            <br />
+        </div>
+
+        <div class="row">
+            <div class="form-group col-md-6">
+                <input type="text" id="CloneProjectName" name="CloneProjectName" required="required" placeholder="New Project Name" class="form-control">
+                <input type="button" id="btnClone" name="btnClone" value="Copy Existing Project" onclick="CloneProject();" />
+            </div>
+            <div class="form-group col-md-6 pull-left">
+                &nbsp;
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <b><font color="red">** Creating a Copy of the Project will add a new Project and create a copy of all PRs associated from existing project. The PR Date and Required Date will be considered as current date and will need changes as per actuals.</font></b>
+            </div>
+            <div class="form-group col-md-6 pull-left">
+                &nbsp;
+            </div>
+        </div>
+        <div class="row">
+            <b>---Bulk PR Upload Section---</b>
+            <br />
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <input type="file" id="PRFileUpload" name="PRFileUpload" class="form-control">
+                <input type="button" id="btnFileUpload" name="btnClone" value="Upload PRs" onclick="UploadPR();" />
+            </div>
+            <div class="form-group col-md-6 pull-left">
+                Template <a href="@Url.Action("GetSampleExcel", "ProjectMaster")">PR_Template.xlsx</a>
+            </div>
+        </div>
+        <div id="errormessage" class="error">
+        </div>
+    </form>-->
+<!-- /form -->
+<!--</div>--> <!-- ./container -->

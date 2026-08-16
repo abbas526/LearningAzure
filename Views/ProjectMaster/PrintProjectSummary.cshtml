@@ -1,0 +1,116 @@
+﻿@model OrientalApplication.Models.ProjectSummaryReportModel
+<html>
+<head>
+    <link href="~/Content/PO_19Oct23_1.css" rel="stylesheet" />
+    <script src="~/Scripts/jquery-3.4.1.js"></script>
+    <script>
+        function printTwoCopies() {
+            $('#printButton').hide();
+
+            // Set up a print counter to control the number of copies
+            var printCounter = 0;
+
+            // Function to handle the print operation
+            function printPage() {
+                if (printCounter < 2) {
+                    if (printCounter == 0) {
+                        $('#PrintType').text("(Original Copy)");
+                    }
+                    else {
+                        $('#PrintType').text("(Duplicate Copy)");
+                    }
+                    printCounter++;
+                    window.print();
+                }
+            }
+
+            // Attach the printPage function as a callback to the afterprint event
+            if (window.matchMedia) {
+                var mediaQueryList = window.matchMedia('print');
+                mediaQueryList.addListener(function (mql) {
+                    if (!mql.matches) {
+                        printPage();
+                    }
+                });
+            }
+
+            printPage();
+        }
+    </script>
+
+</head>
+<body>
+    <div class="book">
+        <div class="page">
+            <div class="subpage">
+                <div class="companyheader">
+                    <table border="0" width="100%">
+                        <tr>
+                            <td width="100%" style="text-align:center">
+                                Project Summary for @Model.ProjectName
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                <br /><br />
+
+                <table class="podetails" width="100%" align="center" border="1px" cellpadding="0px" cellspacing="0px">
+                    <thead>
+                        <tr>
+                            <th>SL</th>
+                            <th>PO Number</th>
+                            <th>PO Date</th>
+                            <th>Vendor</th>
+                            <th>Items Count</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{
+                            var counter = 1;
+                        }
+                        @foreach (var x in Model.ProjectSummaryPOModel)
+                        {
+
+                            <tr>
+                                <td align="center">@counter</td>
+                                <td align="center">@x.PONumber</td>
+                                <td align="center">@x.PODate</td>
+                                <td align="center">@x.Vendor</td>
+                                <td align="center">@x.NumberOfItems</td>
+                                <td align="center">@x.Amount</td>
+                            </tr>
+                            counter++;
+                        }
+
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th>&nbsp;</th>
+                            <th>&nbsp;</th>
+                            <th>&nbsp;</th>
+                            <th>&nbsp;</th>
+                            <th>&nbsp;</th>
+                            <th style="padding-left: 5px;">Total</th>
+                            <th style="padding-left: 5px;">@Model.TotalPOAmount</th>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <br />
+                <br />
+                <br />
+                <br />
+                <button onclick="display();" id="printButton" name="printButton">Click to Print</button>
+                <script>
+                    function display() {
+                        $('#printButton').hide();
+                        window.print();
+                    }
+                </script>
+            </div>
+
+        </div>
+    </div>
+</body>
+</html>

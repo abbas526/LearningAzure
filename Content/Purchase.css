@@ -1,0 +1,112 @@
+﻿@import url('Purchase.css');
+
+form .error {
+    color: #ff0000;
+    text-align: center;
+}
+form .success {
+    color: #00FF00;
+    text-align: center;
+}
+
+button {
+    border: 2px solid #0066cc;
+    background-color: #0099cc;
+    color: #ffffff;
+    padding: 5px 10px;
+}
+
+    button:hover {
+        border: 3px solid #0099cc;
+        background-color: #00aacc;
+        color: #ffffff;
+        padding: 5px 10px;
+    }
+
+    button:disabled,
+    button[disabled] {
+        border: 1px solid #999999;
+        background-color: #cccccc;
+        color: #666666;
+    }
+
+
+form label.required:after {
+    color: red;
+    content: " *";
+}
+
+/* datepicker css */
+
+.ui-datepicker-prev span,
+.ui-datepicker-next span {
+    background-image: none !important;
+}
+
+.ui-datepicker-prev:before,
+.ui-datepicker-next:before {
+    font-family: FontAwesome;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    font-weight: bold;
+    align-items: center;
+    justify-content: center;
+}
+
+.ui-datepicker-prev:before {
+    content: "<<";
+}
+
+.ui-datepicker-next:before {
+    content: ">>";
+}
+
+.card {
+    border-radius: 12px;
+}
+
+.required::after {
+    content: " *";
+    color: red;
+}
+
+
+.shadow-lg {
+    box-shadow: 0 0 20px rgba(0,0,0,0.08);
+}
+
+.custom-card {
+    border-radius: 14px;
+    border: none;
+    box-shadow: 0 6px 25px rgba(0,0,0,0.07);
+    transition: all 0.2s ease-in-out;
+}
+
+    .custom-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+    }
+
+.card-title {
+    font-weight: 600;
+}
+
+.form-label {
+    font-weight: 600;
+}
+
+.required::after {
+    content: " *";
+    color: red;
+}
+
+.btn {
+    border-radius: 8px;
+    height: 44px;
+}
+
+

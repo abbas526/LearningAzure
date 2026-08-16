@@ -1,0 +1,121 @@
+﻿@{
+    ViewBag.Title = "Index";
+}
+<script src="~/Scripts/jquery-3.4.1.js"></script>
+<link href="~/Scripts/jquery-ui-1.12.1.min.css" rel="stylesheet" />
+<link href="~/Content/Purchase.css" rel="stylesheet" />
+<script src="~/Scripts/jquery-ui-1.12.1.min.js"></script>
+<script src="~/Scripts/jquery.validate.min-1.19.js"></script>
+<script src="~/Scripts/form-validation.js"></script>
+
+<script>
+    $(document).ready(function () {
+     $.ajax({
+           type: "GET",
+           url: '@Url.Action("GetItemNames","PurchaseRequisition")',
+           success: function (data) {
+               var s = '<option value="">--Select--</option>';
+               for (var i = 0; i < data.length; i++) {
+                   s += '<option value="' + data[i] + '">' + data[i] + '</option>';
+               }
+               $("#ItemDropdown").html(s);
+           }
+     });
+    });
+    function ValidateForm() {
+
+        var message = "";
+
+        if ($('#ItemName').val() == "") {
+            message += 'Item Name' + '<br>';
+        }
+        if (message != "") {
+            $('#errormessage').html("* <b>Please fill below values</b> <br><br>" + message + "<br>");
+            return false;
+        }
+        else {
+            $('#errormessage').html('');
+        }
+        return true;
+    }
+    function ClearScreen() {
+
+    }
+   function SaveData() {
+
+        if (ValidateForm() == false) {
+            return false;
+        }
+            //Serialize the form datas.
+            var valdata = $("#ItemForm").serialize();
+            //to get alert popup
+            $.ajax({
+                url: '@Url.Action("SaveItem","Item")',
+                type: "POST",
+                dataType: 'json',
+                contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+                data: valdata,
+                success: function (data) {
+                    if (data.Result.includes('Error')) {
+                        alert(data.Result);
+                    }
+                    else {
+                        ShowSaveSuccess(data.Result);
+                    }
+                },
+                error: function (ex) {
+                    console.log(ex);
+                }
+            });
+
+    }
+
+    function ShowSaveSuccess() {
+        $("#message").text('Record Saved Successfully');
+        alert('Record Saved Successfully');
+        setTimeout(function () { $("#message").hide(); }, 5000);
+        $('#errormessage').html('');
+    }
+</script>
+
+<h2>Index</h2>
+
+<div class="container">
+    <form class="form-horizontal" role="form" name="ItemForm" id="ItemForm">
+        <br /><br />
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="PR" class="col-sm-3 control-label required">New Item Name</label>
+                <div class="col-sm-6">
+                    <input type="text" id="ItemName" name="ItemName" required="required" placeholder="Item Name" class="form-control">
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                &nbsp;&nbsp;
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="PR" class="col-sm-3 control-label required">Existing Items List</label>
+                <div class="col-sm-4">
+                    <select required class="form-control" id="ItemDropdown" name="ItemDropdown"></select>
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                &nbsp;
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                &nbsp;
+            </div>
+            <div class="form-group col-md-6 pull-left">
+                <input type="button" id="btnSave" name="btnSave" value="Save" onclick="SaveData();" />
+                &nbsp;&nbsp;
+                <div id="message" name="message" class="success"></div>
+            </div>
+        </div>
+        <div id="errormessage" class="error">
+        </div>
+    </form> <!-- /form -->
+</div> <!-- ./container -->

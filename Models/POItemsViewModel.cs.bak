@@ -1,0 +1,20 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+
+namespace OrientalApplication.Models
+{
+    public class POItemsViewModel
+    {
+        public string SrNo { get; set; }
+        public string Qty { get; set; }
+        public string Particulars { get; set; }
+        public string MOC { get; set; }
+        public string Rate { get; set; }
+        public string Discount { get; set; }
+        public string Unit { get; set; }
+
+
+    }
+}

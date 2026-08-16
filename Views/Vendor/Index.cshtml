@@ -1,0 +1,255 @@
+﻿@{
+    ViewBag.Title = "Index";
+}
+<script src="~/Scripts/jquery-3.4.1.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.css">
+<link href="~/Content/Purchase.css" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.1/jquery.validate.min.js"></script>
+<script src="~/Scripts/form-validation.js"></script>
+
+<script>
+    $(document).ready(function () {
+
+        $("#VendorName").autocomplete({
+            source: function (request, response) {
+                $.ajax({
+                    url: '@Url.Action("GetSearchValue","Vendor")',
+                    dataType: "json",
+                    data: { search: $("#VendorName").val() },
+                    success: function (data) {
+
+                        response($.map(data, function (item) {
+                            return { label: item, value: item };
+                        }));
+                    },
+                    error: function (xhr, status, error) {
+                        alert("Error");
+                    }
+                });
+            }
+        });
+    });
+
+    function LoadData() {
+        $.ajax({
+            type: 'GET',
+            url: '@Url.Action("GetVendor", "Vendor")',
+            dataType: 'json',
+            data: { vendorName: $('#VendorName').val() },
+            success: function (data) {
+                if (data == 'Not Found') {
+                    alert('Vendor Not found');
+                }
+                else {
+                    $('#VendorName').val(data.VendorName);
+                    $('#Address').val(data.Address);
+                    $('#ContactPerson').val(data.ContactPerson);
+                    $('#ContactNumber').val(data.ContactNumber);
+                    $('#Email').val(data.Email);
+                    $('#GST').val(data.GST);
+                    $('#IsActive').val(data.IsActive);
+                    $('#VendorType').val(data.VendorType);
+					$('#VendorMSME').val(data.VendorMSME);
+                }
+
+            },
+            error: function (ex) {
+                alert('Vendor Not Found');
+                console.log(ex);
+            }
+
+        });
+    }
+    function ShowSaveSuccess() {
+        $("#message").text('Record Saved Successfully');
+        alert('Record Saved Successfully');
+        setTimeout(function () { $("#message").hide(); }, 5000);
+        $('#errormessage').html('');
+    }
+    function AddData() {
+         //$('#btnSave').prop('disabled', false);
+        $('#VendorName').val('');
+        $('#Address').val('');
+        $('#ContactPerson').val('');
+        $('#ContactNumber').val('');
+        $('#Email').val('');
+        $('#GST').val('');
+        $('#VendorMSME').val('');
+    }
+    function SaveData() {
+
+        if (ValidateForm() == false) {
+            return false;
+        }
+        //Serialize the form datas.
+        var valdata = $("#VendorForm").serialize();
+        //to get alert popup
+        $.ajax({
+            url: '@Url.Action("SaveVendor","Vendor")',
+            type: "POST",
+            dataType: 'json',
+            contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+            data: valdata,
+            success: function (data) {
+                if (data.Result.includes == "Error") {
+                    alert(data.Result);
+                }
+                else {                    
+                    ShowSaveSuccess(data.Result);
+                }
+            },
+            error: function (ex) {
+                console.log(ex);
+            }
+        });
+    //ShowSaveSuccess();
+    //$('#btnSave').prop('disabled', true);
+    }
+
+    function ValidateForm() {
+
+	    var message = "";
+
+        if ($('#VendorName').val() == "")
+        {
+            message += 'Vendor Name' + '<br>';
+        }
+        if ($('#ContactPerson').val() == "")
+        {
+            message += 'Contact Person' + '<br>';
+        }
+        if ($('#Address').val() == "")
+        {
+            message += 'Address' + '<br>';
+        }
+        if ($('#ContactNumber').val()=="")
+        {
+            message += 'Contact Number' + '<br>';
+        }
+        //if ($('#Email').val() == "")
+        //{
+        //    message += 'Email' + '<br>';
+        //}
+        if ($('#IsActive').val() == "") {
+            message += 'IsActive' + '<br>';
+        }
+        if ($('#VendorType').val() == "") {
+            message += 'Vendor Type' + '<br>';
+        }
+        if (message != "") {
+            $('#errormessage').html("* <b>Please fill below values</b> <br><br>" + message + "<br>");
+            return false;
+        }
+        else {
+            $('#errormessage').html('');
+        }
+        return true;
+    }
+
+    function ShowSaveSuccess(res) {
+        $("#message").text(res);
+        alert(res);
+        setTimeout(function () { $("#message").hide(); }, 5000);
+    }
+
+</script>
+<div class="container">
+    <form class="form-horizontal" role="form" name="VendorForm" id="VendorForm">
+        <br /><br />
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="PR" class="col-sm-3 control-label required">Vendor Name</label>
+                <div class="col-sm-6">
+                    @*<select class="form-control" id="VendorName" name="VendorName" required="required"></select>*@
+                    <input type="text" id="VendorName" name="VendorName" required="required" placeholder="Vendor Name" class="form-control">
+                </div>
+                <div class="col-sm-2">
+                    <a href="#" onclick="LoadData();" title="Search Vendor" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
+                        <i class="glyphicon glyphicon-search"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                <input type="button" id="btnAdd" name="btnAdd" value="Add Vendor" onclick="AddData();" />&nbsp;&nbsp;
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="PR" class="col-sm-3 control-label required">Address</label>
+                <div class="col-sm-6">
+                    <input type="text" id="Address" required="required" name="Address" placeholder="Address" class="form-control">
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                <label for="Item" class="control-label col-sm-3 required">Contact Person</label>
+                <div class="col-sm-6">
+                    <input type="text" id="ContactPerson" required="required" name="ContactPerson" placeholder="Contact Person" class="form-control">
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="ProjectRef" class="col-sm-3 control-label required">Contact Number</label>
+                <div class="col-sm-6">
+                    <input type="tel" id="ContactNumber" name="ContactNumber" required="required" placeholder="Contact Number" class="form-control">
+                </div>
+            </div>
+            <div class="form-group col-md-6" id="hiddenItemdiv required">
+                <label for="Item" class="control-label col-sm-3">Email</label>
+                <div class="col-sm-6">
+                    <input type="email" id="Email" name="Email" placeholder="Email" class="form-control">
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="ProjectRef" class="col-sm-3 control-label">GST</label>
+                <div class="col-sm-6">
+                    <input type="text" id="GST" name="GST" required="required" placeholder="GST Number" class="form-control">
+                </div>
+            </div>
+            <div class="form-group col-md-6 pull-left ">
+                <label for="ProjectRef" class="col-sm-3 control-label required">Active</label>
+                <div class="col-sm-6">
+                    <select name="IsActive" id="IsActive" class="form-control">
+                        <option value="">--Select--</option>
+                        <option value="yes">yes</option>
+                        <option value="no">no</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="ProjectRef" class="col-sm-3 control-label required">Vendor Type</label>
+                <div class="col-sm-6">
+                    <select name="VendorType" id="VendorType" class="form-control">
+                        <option value="">--Select--</option>
+                        <option value="PO">PO Vendor</option>
+                        <option value="Challan">Outgoing Challan Vendor</option>
+                    </select>
+                </div>
+            </div>
+			<div class="form-group col-md-6 pull-left ">
+				<label for="ProjectRef" class="col-sm-3 control-label">Vendor MSME</label>
+				<div class="col-sm-6">
+					<input type="text" id="VendorMSME" name="VendorMSME" required="required" placeholder="Vendor MSME" class="form-control">
+				</div>
+			</div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                &nbsp;
+            </div>
+            <div class="form-group col-md-6 pull-left">
+                <input type="button" id="btnSave" name="btnSave" value="Save" onclick="SaveData();" />
+                &nbsp;&nbsp;
+                <div id="message" name="message" class="success"></div>
+            </div>
+
+        </div>
+        <div id="errormessage" class="error">
+        </div>
+    </form> <!-- /form -->
+</div> <!-- ./container -->

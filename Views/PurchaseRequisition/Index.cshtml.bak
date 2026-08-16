@@ -1,0 +1,450 @@
+﻿@{
+    ViewBag.Title = "Index";
+}
+<script src="~/Scripts/jquery-3.4.1.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.css">
+<link href="~/Content/Purchase.css" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.1/jquery.validate.min.js"></script>
+<script src="~/Scripts/form-validation.js"></script>
+
+<script type="text/javascript">
+
+    function PRAddToTable(PRNumber, Item, Qty, Size, Unit) {
+        
+        // Append product to the table
+        $("#PRTable tbody").append("<tr>" +
+            "<td>" + PRNumber + "</td>" +
+            "<td>" + Item + "</td>" +
+            "<td>" + Qty + "</td>" +
+            "<td>" + Size + "</td>" +
+            "<td>" + Unit + "</td>" +
+            "</tr>");
+    }
+
+    $(document).ready(function () {
+
+
+        $("#PRNo").autocomplete({
+            source: function (request, response) {
+                $.ajax({
+                    url: '@Url.Action("GetSearchValue","PurchaseRequisition")',
+                    dataType: "json",
+                    data: { search: $("#PRNo").val() },
+                    success: function (data) {
+
+                        response($.map(data, function (item) {                           
+                            return { label: item, value: item };
+                        }));
+                    },
+                    error: function (xhr, status, error) {
+                        alert("Error");
+                    }
+                });
+            }
+        });
+
+      $.ajax({
+           type: "GET",
+           url: '@Url.Action("GetProjectNames","PurchaseRequisition")',
+           success: function (data) {
+               var s = '<option value="">--Select--</option>';
+               for (var i = 0; i < data.length; i++) {
+                   s += '<option value="' + data[i] + '">' + data[i] + '</option>';
+               }
+               $("#ProjectRefDropdown").html(s);
+           }
+      });
+
+      $.ajax({
+           type: "GET",
+           url: '@Url.Action("GetOldProjectNames","PurchaseRequisition")',
+           success: function (data) {
+               var s = '<option value="">--Select--</option>';
+               for (var i = 0; i < data.length; i++) {
+                   s += '<option value="' + data[i] + '">' + data[i] + '</option>';
+               }
+               $("#OldProjects").html(s);
+           }
+      });
+
+
+     $.ajax({
+           type: "GET",
+           url: '@Url.Action("GetItemNames","PurchaseRequisition")',
+           success: function (data) {
+               var s = '<option value="">--Select--</option>';
+               for (var i = 0; i < data.length; i++) {
+                   s += '<option value="' + data[i] + '">' + data[i] + '</option>';
+               }
+               $("#ItemDropdown").html(s);
+           }
+     });
+
+    $('#btnSave').prop('disabled', true);
+    });
+
+</script>
+
+<script>
+    function ShowSaveSuccess() {
+        $("#message").text('Record Saved Successfully');
+        alert('Record Saved Successfully');
+        setTimeout(function() { $("#message").hide(); }, 5000);
+    }
+    function AddData() {
+        var pr = $("#UserCode").val();
+
+        //if (pr == "") {
+        //    alert("Select User Code");
+        //    return false;
+        //}
+        //$("#PRDate").val('');
+        //$("#PRNo").val();
+        //$("#ProjectRefDropdown").val($("#ProjectRefDropdown option:first").val());
+        //$("#ItemDropdown").val($("#ItemDropdown option:first").val());
+        //$("#ItemSize").val('');
+        //$("#Specs").val('');
+        //$("#Quantity").val('');
+        //$("#DateRequired").val('');
+        //$("#Remark").val('');
+
+        @*$.ajax({
+            type: "GET",
+            url: '@Url.Action("GeneratePRNo","PurchaseRequisition")',
+            data: "{}",
+            success: function (data) {
+
+                if (data != null && data != '0') {
+                    var newPR = $("#UserCode").val() + '-' + data.PRNoNumber;
+                    $("#PRNo").val(newPR);
+                }
+                else {
+                    var newPR = $("#UserCode").val() + '-' + '101';
+                    $("#PRNo").val(newPR);
+                }
+
+            }
+        });*@
+         $('#btnSave').prop('disabled', false);
+    }
+    function SaveData() {
+        if (ValidateForm() == false) {
+            return false;
+        }
+            //Serialize the form datas.
+            var valdata = $("#PRForm").serialize();
+            //to get alert popup
+            $.ajax({
+                url: '@Url.Action("PRSave","PurchaseRequisition")',
+                type: "POST",
+                dataType: 'json',
+                contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+                data: valdata,
+                success: function (data) { 
+                    if (data == 'PR Already Exists') {
+                        alert(data);                        
+                    }
+                    else if (data != null && data.PRNumber !== 'undefined' && data.PRNumber != '') {
+                        PRAddToTable(data.PRNo, data.ItemDropdown, data.Quantity, data.ItemSize, data.Unit);
+                        ShowSaveSuccess();
+                    }
+                    else {
+                        alert(data);
+                    }
+                },
+                error: function (ex) {
+                    console.log(ex);
+                }
+            });
+        //ShowSaveSuccess();
+        $('#btnSave').prop('disabled', true);
+    }
+    function LoadData() {
+        $.ajax({
+            type: 'GET',
+            url: '@Url.Action("PRGet","PurchaseRequisition")',
+            dataType: 'json',
+            data: { PRNo: $('#PRNo').val() },
+            success: function (data) {                
+                $("#PRDate").val(data.PRDate);
+                $("#PRNo").val(data.PRNo);
+                $("#ProjectRefDropdown").val(data.ProjectRefDropdown);
+                $("#ItemDropdown").val(data.ItemDropdown);
+                $("#ItemSize").val(data.ItemSize);
+                $("#Specs").val(data.Specs);
+                $("#Quantity").val(data.Quantity);
+                $("#DateRequired").val('2021/11/11');//data.DateRequired);
+                $("#Remark").val(data.Remark);
+                $("#Unit").val(data.Unit);
+                $("#UserCode").val(data.UserCode);
+            },
+            error: function (ex) {
+                console.log(ex);
+            }
+        });
+        return false;
+    }
+
+    function ValidateForm() {
+
+        if ($('#ItemDropdown').val() != "" && $('#NewItem').val() != "") {
+            alert("The New Item will be considered in PR");
+        }
+
+        var valid = true;
+	    var message = "";
+
+        //if ($('#PRNo').val() == "")
+        //{
+        //    message += 'Purchase Requisition Number' + '<br>';
+        //}
+        if ($('#PRDate').val() == "")
+        {
+            message += 'Purchase Requisition Date' + '<br>';
+        }
+        if ($('#ItemDropdown').val() == "" && $('#NewItem').val() == "")
+        {
+            message += 'Item' + '<br>';
+        }
+        if ($('#ProjectRefDropdown').val()=="")
+        {
+            message += 'Project Ref' + '<br>';
+        }
+        if ($('#ItemSize').val() == "")
+        {
+            message += 'Size' + '<br>';
+        }
+        if ($('#Specs').val() == "")
+        {
+            message += 'Spec/MOC' + '<br>';
+        }
+        if ($('#Quantity').val() == "") {
+            message += 'Quantity' + '<br>';
+        }
+        else {
+            if (!$.isNumeric($('#Quantity').val())) {
+                message += 'Quantity is not numeric' + '<br>';
+            }
+        }        
+        if ($('#DateRequired').val() == "")
+        {
+            message += 'Date Required' + '<br>';
+        }
+        if ($('#Unit').val() == "")
+        {
+            message += 'Unit of Measurement' + '<br>';
+        }
+
+        if (message != "") {
+
+            $('#errormessage').html("* <b>Please fill below values</b> <br><br>" + message + "<br>");
+            return false;
+        }
+        else {
+            $('#errormessage').html();
+            return true;
+        }
+
+    }
+
+
+    function GetPRs(projectType) {
+        var projectname = ''; 
+
+        if (projectType == 'old') {
+            projectname = $("#OldProjects").val();
+        }
+        else {
+            projectname = $("#ProjectRefDropdown").val();
+        }
+         $.ajax({
+             type: "GET",
+             url: '@Url.Action("GetPRs","PurchaseRequisition")',
+             data: { project: projectname },
+             success: function (data) { 
+                 $("#PRTable tbody").html('');
+                 if (data == null || data.length == 0) {
+                     alert("No PR Records");
+                 }
+                 else {                         
+
+                     for (var i = 0; i < data.length; i++) {
+                         PRAddToTable(data[i].PRNo, data[i].ItemDropdown, data[i].Quantity, data[i].ItemSize, data[i].Unit);
+                     }
+                 }
+             }
+         });  
+    }
+
+</script>
+<div class="container">
+    <form class="form-horizontal" role="form" name="PRForm" id="PRForm">
+        <h2>Purchase Requisition Details</h2>
+
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="PR" class="col-sm-3 control-label required">User Code</label>
+                <div class="col-sm-9">
+                    <select name="UserCode" id="UserCode" required>
+                        <option value="">--Select--</option>
+                        <option value="KSK">KSK</option>
+                        <option value="JB">JB</option>
+                        <option value="AS">AS</option>
+                        <option value="MA">MA</option>
+                        <option value="CV">CV</option>
+                        <option value="IS">IS</option>
+                        <option value="OFMS">OFMS</option>
+                        <option value="OMMS">OMMS</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                &nbsp;
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="PR" class="col-sm-3 control-label">Purchase Requisition</label>
+                <div class="col-sm-6">
+                    <input type="text" id="PRNo" name="PRNo" required="required" placeholder="Purchase Requisition" class="form-control">
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                <input type="button" id="btnAdd" name="btnAdd" value="Add New PR" onclick="AddData();" />&nbsp;&nbsp;
+                <input type="button" id="btnSearchPR" name="btnSearchPR" value="Search PR" onclick="LoadData();" />&nbsp;&nbsp;
+
+
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="PR" class="col-sm-3 control-label required">P R Date</label>
+                <div class="col-sm-6">
+                    <input type="date" id="PRDate" required="required" name="PRDate" placeholder="Purchase Requisition Date" class="form-control">
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                <label for="Item" class="control-label col-sm-3 required">Item</label>
+                <div class="col-sm-6">
+                    <select required class="form-control" id="ItemDropdown" name="ItemDropdown"></select>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="ProjectRef" class="col-sm-3 control-label required">Project Ref</label>
+                <div class="col-sm-5">
+                    <select class="form-control" id="ProjectRefDropdown" name="ProjectRefDropdown"></select>
+                </div>
+                <div class="col-sm-1">
+                    <span>
+                        <a href="#" onclick="GetPRs('new');" title="Display PRs for Project" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
+                            <i class="glyphicon glyphicon-th-list"></i>
+                        </a>
+                    </span>
+                    @*<img src="~/Images/UpIcon.png" style="display: block; height: 32px; width: 32px;" />*@
+                </div>
+            </div>
+            <div class="form-group col-md-6" id="hiddenItemdiv">
+                <label for="Item" class="control-label col-sm-3">New Item</label>
+                <div class="col-sm-6">
+                    <input type="text" id="NewItem" placeholder="New Item" class="form-control" name="NewItem">
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="email" class="col-sm-3 control-label required">Size</label>
+                <div class="col-sm-6">
+                    <input required="required" type="text" id="ItemSize" placeholder="Size" class="form-control" name="ItemSize">
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                <label for="Specs" class="col-sm-3 control-label required">Spec/MOC</label>
+                <div class="col-sm-6">
+                    <input required="required" type="text" id="Specs" name="Specs" placeholder="Specs/MOC" class="form-control">
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="password" class="col-sm-3 control-label required">Quantity Ordered</label>
+                <div class="col-sm-6">
+                    <input type="number" id="Quantity" name="Quantity" required="required" placeholder="Quantity Ordered" class="form-control">
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                <label for="Quantity" class="col-sm-3 control-label required">Date Required</label>
+                <div class="col-sm-9">
+                    <input required="required" type="date" name="DateRequired" id="DateRequired" class="form-control">
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="password" class="col-sm-3 control-label required">Unit of Measurement</label>
+                <div class="col-sm-6">
+                    <select id="Unit" name="Unit" required="required" class="form-control">
+                        <option value="">--Select--</option>
+                        <option value="Kgs">Kgs</option>
+                        <option value="Nos">Nos</option>
+                        <option value="Dozen">Dozen</option>
+                        <option value="Metres">Metres</option>
+                        <option value="Feet">Feet</option>
+                        <option value="Litres">Litres</option>
+                        <option value="Sets">Sets</option>
+                    </select>                    
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                <label for="ProjectRef" class="col-sm-3 control-label required">Old Projects</label>
+                <div class="col-sm-5">
+                    <select class="form-control" id="OldProjects" name="OldProjects"></select>
+                </div>
+                <div class="col-sm-1">
+                    <span>
+                        <a href="#" onclick="GetPRs('old');" title="Display Old PRs for Project" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
+                            <i class="glyphicon glyphicon-th-list"></i>
+                        </a>
+                    </span>
+                    @*<img src="~/Images/UpIcon.png" style="display: block; height: 32px; width: 32px;" />*@
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="remark" class="col-sm-3 control-label">Remark</label>
+                <div class="col-sm-6">
+                    <input type="text" name="Remark" id="Remark" placeholder="Remark" class="form-control">
+                </div>
+            </div>
+            <div class="form-group col-md-6 pull-left">
+                <input type="submit" id="btnSave" name="btnSave" value="Save PR" onclick="SaveData();" />
+                &nbsp;&nbsp;
+                <div id="message" name="message" class="success"></div>
+
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-12">
+                <table id="PRTable" name="PRTable" class="table table-bordered table-condensed table-striped">
+                    <thead>
+                        <tr>
+                            <th>PR Number</th>
+                            <th>Item</th>
+                            <th>Qty</th>
+                            <th>Size</th>
+                            <th>Unit Of Measurement</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+
+            </div>
+        </div>
+        <div id="errormessage" class="error">
+        </div>
+    </form> <!-- /form -->
+</div> <!-- ./container -->

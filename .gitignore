@@ -1,0 +1,10 @@
+﻿bin/
+obj/
+*.user
+*.suo
+.vs/
+*.dbmdl
+appsettings.Development.json
+*.pfx
+
+app_client_secret.json

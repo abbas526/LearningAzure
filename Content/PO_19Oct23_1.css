@@ -1,0 +1,133 @@
+﻿
+.page {
+    width: 216mm;
+    padding: 2mm;
+    margin: 2mm auto;
+    border-radius: 2px;
+    background: white;
+    page-break-after: always;
+}
+
+.subpage {
+    padding: 0.5cm;
+    border: 1px black solid;
+}
+
+@page {
+    margin-top: 10px;
+    size: Letter;
+}
+
+@media print {
+    html, body {
+        width: 216mm;
+        height: 270mm;
+    }
+
+    .page {
+        margin: 10px;
+        border: initial;
+        border-radius: initial;
+        width: initial;
+        min-height: initial;
+        box-shadow: initial;
+        background: initial;
+        /*page-break-after: always;*/
+    }
+
+    .subpage {
+        padding: 0.5cm;
+        border: 1px black solid;
+    }
+}
+
+.corporateaddress {
+    text-align: center;
+    width: 100%;
+}
+
+.companyheader {
+    text-align: center;
+    width: 100%;
+    font-size: 24pt;
+}
+
+.regularbold {
+    font-size: 14pt;
+    font-color: black;
+}
+
+.regular {
+    font-size: 11pt;
+    font-color: black;
+}
+
+.notes {
+    font-size: 10pt;
+    font-color: black;
+}
+
+table.podetails {
+    font-size: 10pt;
+    font-color: black;
+}
+
+th {
+    text-align: center;
+}
+
+.regular-small {
+    font-size: 10pt;
+    font-color: black;
+}
+
+ul.custom-bullets {
+    list-style-type: disc; /* Use small bullets */
+    margin: 0; /* Remove default margin */
+    padding-left: 2px; /* Adjust padding to control indentation */
+}
+
+    ul.custom-bullets li {
+        margin-bottom: 2px; /* Adjust the space between list items */
+    }
+
+/* The popup modal background (hidden by default) */
+/*#popupModal {
+    display: none;*/ /* Hidden by default */
+    /*position: fixed;*/ /* Stay in place */
+    /*z-index: 1;*/ /* Sit on top */
+    /*left: 0;
+    top: 0;
+    width: 100%;*/ /* Full width */
+    /*height: 100%;*/ /* Full height */
+    /*overflow: auto;*/ /* Enable scroll if needed */
+    /*background-color: rgba(0, 0, 0, 0.5);*/ /* Black background with opacity */
+/*}*/
+
+/* Popup content */
+/*#popupContent {
+    background-color: #fefefe;
+    margin: 15% auto;*/ /* 15% from the top and centered */
+    /*padding: 20px;
+    border: 1px solid #888;
+    width: 80%;*/ /* Could be more or less, depending on screen size */
+    /*max-width: 600px;*/ /* Limit the maximum width */
+/*}*/
+
+/* Close button style */
+/*.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+    .close:hover,
+    .close:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+    }*/
+
+
+

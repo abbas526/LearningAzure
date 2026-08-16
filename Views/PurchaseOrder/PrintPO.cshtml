@@ -1,0 +1,192 @@
+﻿@model OrientalApplication.Models.POPrintViewModel
+<html>
+<head>
+    <link href="~/Content/PO_19Oct23_1.css" rel="stylesheet" />
+    <script src="~/Scripts/jquery-3.4.1.js"></script>
+</head>
+<body>
+    <div class="book">
+        <div class="page">
+			<div class="subpage">
+				<div class="companyheader">
+					<table border="0" width="100%">
+						<tr>
+							<td width="100%" style="text-align:center">
+								@if (Model.POCompany.CompanyName.ToLower().Contains("fabritech"))
+								{
+									<img src="~/Images/LogoFab.png" width="53" height="50" />
+								}
+								else
+								{
+									<img src="~/Images/Logo.jpg" width="57" height="65" />
+								}
+								@{
+									var companyName = Model.POCompany.CompanyName;
+									var color = companyName.ToLower().Contains("fabritech") ? "rgb(31, 36, 102)" : "rgb(245, 129, 28)";
+								}
+
+								<span style="color: @color !important;">@Model.POCompany.CompanyName &nbsp;&nbsp;</span>
+								<img src="~/Images/Austria.jpg" width="50" height="50" />
+							</td>
+						</tr>
+					</table>
+				</div>
+
+				<div class="corporateaddress">
+					<b>Reg. Office:</b>	208 Comet, Guru Nanak Road, Bandra (West), Mumbai  400050.
+				</div>
+				<div class="corporateaddress">
+					<b>Works:&nbsp;</b>	@Model.POCompany.CompanyAddress
+				</div>
+				<div class="corporateaddress">
+					<b>GSTIN No:</b> @Model.POCompany.GSTNo
+				</div>
+				<br />
+
+				<div align=center class="regularbold">
+					<span style="color: @color !important;">Purchase Order</span>
+				</div>
+				<div align="left" class="regular">
+					<span style="width: 450px; display: inline-block"></span><b>Date:</b> @Model.PO.PODate
+					<span style="width: 450px; display: inline-block"></span><b>Order No:</b> @Model.PO.PONumber
+				</div>
+
+				<div align="left" class="regular">
+					<b>Project: </b> @(Model.PO.AllProjects)<br>
+					<br>
+					<table>
+						<tr>
+							<td width="50%" valign="top" style="padding-right: 6px;">
+								<b>Vendor: </b> @(Model.POVendor!=null ? Model.POVendor.VendorName : "")<br>
+								<b>Contact Person: </b> @(Model.POVendor != null ? Model.POVendor.ContactPerson : "") <br>
+								<b>Contact Number:</b> @(Model.POVendor != null ? Model.POVendor.ContactNumber : "")<br>
+								<b>Email: </b>@(Model.POVendor != null ? Model.POVendor.Email : "")<br>
+							</td>
+							<td width="5%">&nbsp;</td>
+							<td width="50%" valign="top" style="padding-right: 0px;">
+								<b>Vendor Address: </b> @(Model.POVendor != null ? Model.POVendor.Address : "")<br>
+
+								<b>Vendor GST: </b>@(Model.POVendor != null ? Model.POVendor.GST : "")<br>
+								<b>Vendor MSME: </b>@(Model.POVendor != null ? Model.POVendor.VendorMSME : "")<br>
+							</td>
+						</tr>
+					</table>
+					<b>Quote Reference:</b> @Model.PO.QuoteRef
+				</div>
+				<div class="regular">
+					<br>
+					We are pleased to place an order on you for the following items:
+				</div>
+				<table class="podetails" width="100%" align="center" border="1px" cellpadding="0px" cellspacing="0px">
+					<thead>
+						<tr>
+							<th>PR</th>
+							<th>Item</th>
+							<th>Details/Size</th>
+							<th>MOC</th>
+							<th>Unit</th>
+							<th>Qty</th>
+							<th>Unit Rate</th>
+							@if (Model.PO.DisplayDiscount == "true")
+							{
+								<th>Discount</th>
+							}
+						</tr>
+					</thead>
+					<tbody>
+						@foreach (var x in Model.POItemsVM)
+						{
+						<tr>
+							<td align="center">@x.PRNo</td>
+							<td style="padding-left: 5px;">@x.Particulars</td>
+							<td style="padding-left: 5px;">@x.Size</td>
+							<td style="padding-left: 5px;">@x.MOC</td>
+							<td style="padding-left: 5px;">@x.Unit</td>
+							<td style="padding-left: 5px;" align="center">@x.Qty</td>
+							<td style="padding-left: 5px;">@x.Rate</td>
+							@if (Model.PO.DisplayDiscount == "true")
+							{
+								<td style="padding-left: 5px;">@x.Discount</td>
+							}
+						</tr>
+						}
+
+					</tbody>
+					@if (Model.PO.DisplayTotal == "true")
+					{
+						<tfoot>
+							<tr>
+								<th>&nbsp;</th>
+								<th>&nbsp;</th>
+								<th>&nbsp;</th>
+								<th>&nbsp;</th>
+								<th>&nbsp;</th>
+								<th style="padding-left: 5px;">Total</th>
+								<th style="padding-left: 5px;">@Model.PO.POAmount</th>
+								<th>&nbsp;</th>
+							</tr>
+						</tfoot>
+					}
+				</table>
+				<div class="regular">
+					<b>HSN No:</b>@Model.PO.HSNNo
+				</div>
+				<div class="regular">
+					<br>
+					<b>Notes</b>:<br /> @Html.Raw(Model.PO.PORemarks.Replace("  ", " " + "<br>"))
+				</div>
+				<br />
+				<div class="regular-small">
+					<span style="color: @color !important;"> <b>PO Terms&nbsp;&nbsp;</b> </span>
+					<br />
+					<table>
+						<tr>
+							<td width="50%" valign="top" style="padding-right: 6px;">
+								<ul class="custom-bullets">
+									<li><b>Delivery Date:</b> @Model.PO.DeliveryRequiredBy</li>
+									<li><b>Delivery Address:</b> @Model.PO.DeliveryRequiredAt</li>
+									<li>
+										<b>Note:</b> Delivery as per PO terms is the essence of the order. Delayed deliveries
+										may lead to cancellation of Order.
+									</li>
+									<li><b>Payment Terms:</b> @Model.PO.PaymentTerms</li>
+								</ul>
+							</td>
+							<td width="50%" valign="top" style="padding-right: 0px;">
+								<ul class="custom-bullets">									
+									<li><b>Delivery Instruction:</b> @Model.PO.DeliveryInstructions</li>
+									<li><b>Transportation:</b> @Model.PO.TransportationCharges</li>
+									<li><b>Taxes:</b> GST as applicable only</li>
+									<li>
+										<b>Quality:</b> Material TC to be provided along with the items<br />
+										Material acceptance is subject to Quality Checks
+									</li>
+									<li><b>Packing:</b> Material to be suitably packed for road transport</li>
+								</ul>
+							</td>
+						</tr>
+					</table>
+
+
+				</div>
+				<div class="regular">
+					<br>
+					<b>Order By:</b> @Model.POCompany.ContactPerson<br><br />
+					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+					@Model.POCompany.Email
+					<span style="width: 100px; display: inline-block"></span>
+					Contact: @Model.POCompany.ContactPersonNumber
+				</div>
+				<button onclick="display()" id="printButton" name="printButton">Click to Print</button>
+				<script>
+					function display() {
+						$('#printButton').hide();
+						window.print();
+					}
+				</script>
+			</div>
+
+        </div>
+    </div>
+</body>
+</html>

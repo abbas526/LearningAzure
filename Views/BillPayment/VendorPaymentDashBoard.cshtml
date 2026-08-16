@@ -1,0 +1,208 @@
+﻿
+@{
+    ViewBag.Title = "VendorPaymentDashBoard";
+}
+
+
+
+<script src="~/Scripts/jquery-3.4.1.js"></script>
+<link href="~/Scripts/jquery-ui-1.12.1.min.css" rel="stylesheet" />
+<link href="~/Content/Purchase.css" rel="stylesheet" />
+<script src="~/Scripts/jquery-ui-1.12.1.min.js"></script>
+<script src="~/Scripts/jquery.validate.min-1.19.js"></script>
+
+<script src="~/Scripts/form-validation.js"></script>
+<script>
+    var Id = 0;
+    var ProjectNames;
+    var Balance = 0;
+    $(document).ready(function () {
+
+        VendorChange();
+
+        $.ajax({
+            url: '/BillPayment/GetTotalPayments',
+            type: 'GET',
+            dataType: 'json',
+            data: { year: $('YearList').val(), month: $('MonthList').val() },
+            success: function (data) {
+                $('#TotalAmountBilled').text(data.TotalBillAmount);
+                $('#BalanceAmount').text(data.Balance);
+            },
+            error: function (error) {
+                console.log(error);
+            }
+        });
+
+        $("#Vendor").change(function () {
+            VendorChange();
+        });
+
+        $.ajax({
+            type: "GET",
+            url: '@Url.Action("GetVendorsForDashBoard", "BillPayment")',
+            success: function (data) {
+                var s = '<option value="">Please Select</option>';
+                for (var i = 0; i < data.length; i++) {
+                    s += '<option value="' + data[i] + '">' + data[i] + '</option>';
+                }
+                $("#Vendor").html(s);
+            }
+        });
+        //$('#BillDate').datepicker({
+        //    dateFormat: "dd-mm-yy",
+        //});
+        //$('#PaymentDate').datepicker({
+        //    dateFormat: "dd-mm-yy",
+        //});
+
+         // Add the first row by default
+    });
+
+    function fillTable(data) {
+        // Populate the table with data from the controller
+        var tbody = $('#PaymentTable tbody');
+        tbody.empty(); // Clear existing rows
+        var ctr = 1;
+        $.each(data, function (index, item) {
+            var newRow = $('<tr>');
+            newRow.append($('<td style="padding-left: 5px;">').html('<a href="#" onClick="PaymentDetailsForVendor(\'' + item.Vendor + '\');">' + item.Vendor + '</a>'));
+            newRow.append($('<td style="padding-left: 5px;">').html('<span>' + item.TotalBillAmount + '</span>'));
+            newRow.append($('<td style="padding-left: 5px;">').html('<span>' + item.TotalAmountPaid + '</span>'));
+            newRow.append($('<td style="padding-left: 5px;">').html('<span>' + item.Balance + '</span>'));
+
+
+            tbody.append(newRow);
+        });
+    }
+
+    function PaymentDetailsForVendor(Vendor) {        
+        $.ajax({
+            url: '/BillPayment/GetPaymentDetailsForVendor',
+            type: 'GET',
+            data: { vendor: Vendor },
+            success: function (data) {
+                // Populate the table with data from the controller
+                var tbody = $('#VendorTable tbody');
+                tbody.empty(); // Clear existing rows
+                var ctr = 1;
+                $.each(data, function (index, item) {
+                    var newRow = $('<tr>');
+                    newRow.append($('<td style="padding-left: 5px;">').html('<span>' + item.ChallanNo + '</span>'));
+                    newRow.append($('<td style="padding-left: 5px;">').html('<span>' + item.BillNo + '</span>'));
+                    newRow.append($('<td style="padding-left: 5px;">').html('<span>' + item.BillDate + '</span>'));
+                    newRow.append($('<td style="padding-left: 5px;">').html('<span>' + item.BillAmount + '</span>'));
+                    newRow.append($('<td style="padding-left: 5px;">').html('<span>' + item.BalanceAmount + '</span>'));
+
+                    tbody.append(newRow);
+                });
+            },
+            error: function () {
+                alert('Error fetching data from the controller.');
+            }
+        });
+    }
+
+    function VendorChange() {
+
+        var tbody = $('#VendorTable tbody');
+        tbody.empty(); // Clear existing rows
+
+        var selectedValue = $('#Vendor').val();
+        var selectedYear = $('YearList').val();
+        var selectedMonth = $('MonthList').val();
+
+        $.ajax({
+            url: '/BillPayment/GetPayments',
+            type: 'GET',
+            dataType: 'json',
+            data: { vendor: selectedValue, year: selectedYear, month: selectedMonth },
+            success: function (data) {
+                fillTable(data);
+            },
+            error: function (error) {
+                console.log(error);
+            }
+        });
+
+    }
+
+</script>
+
+<div class="container">
+    <form class="form-horizontal" role="form" name="PaymentForm" id="PaymentForm">
+        <h2>Payment Dasboard</h2>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="email" class="col-sm-3 control-label required">Vendor Name</label>
+                <div class="col-sm-6">
+                    <select class="form-control" id="Vendor" name="Vendor" required="required"></select>
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                &nbsp;
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="email" class="control-label ">Total Amount Billed : </label>
+                &nbsp;&nbsp;&nbsp; &#x20b9; <span id="TotalAmountBilled" name="TotalAmountBilled"></span>
+                @*<div class="col-sm-6">
+
+        </div>*@
+            </div>
+            <div class="form-group col-md-6">
+                <label for="email" class="control-label ">Balance Amount : </label>
+                &nbsp;&nbsp;&nbsp; &#x20b9;
+                <span id="BalanceAmount" name="BalanceAmount"></span>
+
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-12">
+                <table id="PaymentTable" name="PaymentTable" class="table table-bordered table-condensed table-striped">
+                    <thead>
+                        <tr style="background-color:lightblue">
+                            <th>Vendor</th>
+                            <th>Billed Amount</th>
+                            <th>Amount Paid</th>
+                            <th>Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <br />
+        <div class="row">
+            <div class="form-group col-md-12">
+                <table id="VendorTable" name="VendorTable" class="table table-bordered table-condensed table-striped">
+                    <thead>
+                        <tr style="background-color:lightpink">
+                            <th>Challan Number</th>
+                            <th>Bill No</th>
+                            <th>Bill Date</th>
+                            <th>Bill Amount</th>
+                            <th>Balance Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <br /><br />
+
+        <div class="row text-center">
+            <input type="button" id="btnSave" name="btnSave" value="Save All" onclick="PaymentSave();" />
+
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<input type="button" id="ClearButton" name="ClearButton" onclick="ClearScreen();" value="Clear All" />
+        </div>
+        <div id="errormessage" class="error">
+        </div>
+        <div id="message" name="message" class="success">
+        </div>
+    </form>
+</div>

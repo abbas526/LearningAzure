@@ -1,0 +1,57 @@
+﻿@model OrientalApplication.Models.PurchaseRequisition
+<html>
+<head>
+    <link href="~/Content/PO_19Oct23_1.css" rel="stylesheet" />
+    <script src="~/Scripts/jquery-3.4.1.js"></script>
+</head>
+<body>
+    <div class="book">
+        <div class="page">
+            <div class="subpage">
+                <br /><br />
+                <hr />
+                <div align=center class="regularbold">
+                    <b>Purchase Requisition Details</b>
+                </div>
+                <div>
+                    <br><br><br>
+                </div>
+                <div align="left" class="regular">
+                    <b>User Code:</b> @Model.UserCode
+                    <br> <br />
+
+                    <b>Purchase Req No: </b> @Model.PRNo<br><br />
+
+                    <b>P R Date: </b> @Model.PRDate <br /><br />
+
+                    <b>Project Name: </b> @Model.ProjectRefDropdown<br><br />
+
+                    <b>Item:</b>&nbsp;@Model.ItemDropdown<br /><br />
+
+                    <b>New Item:</b>&nbsp;@Model.NewItem<br /><br />
+
+                    <b>Size: </b> @Model.ItemSize<br><br />
+
+                    <b>Spec/MOC:</b>&nbsp;@Model.Specs<br /><br />
+
+                    <b>Quantity Ordered: </b> @Model.Quantity<br><br />
+
+                    <b>Date Required:</b>&nbsp;@Model.DateRequired<br /><br />
+
+                    <b>Unit of Measurement: </b> @Model.Unit<br><br />
+
+                    <b>Remark:</b>&nbsp;@Model.Remark<br /><br />
+
+                    <button onclick="display()" id="printButton" name="printButton">Click to Print</button>
+                    <script>
+                        function display() {
+                            $('#printButton').hide();
+                            window.print();
+                        }
+                    </script>
+                </div>
+
+        </div>
+    </div>
+</body>
+</html>

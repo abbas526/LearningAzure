@@ -1,0 +1,295 @@
+﻿@{
+    ViewBag.Title = "Index";
+}
+<script src="~/Scripts/jquery-3.4.1.js"></script>
+<link href="~/Scripts/jquery-ui-1.12.1.min.css" rel="stylesheet" />
+<link href="~/Content/Purchase.css" rel="stylesheet" />
+<script src="~/Scripts/jquery-ui-1.12.1.min.js"></script>
+<script src="~/Scripts/jquery.validate.min-1.19.js"></script>
+<script src="~/Scripts/form-validation.js"></script>
+
+<script type="text/javascript">
+    $(document).ready(function () {
+
+      $.ajax({
+           type: "GET",
+           url: '@Url.Action("GetProjectNames","PurchaseRequisition")',
+           success: function (data) {
+               var s = '<option value="">--Select--</option>';
+               for (var i = 0; i < data.length; i++) {
+                   s += '<option value="' + data[i] + '">' + data[i] + '</option>';
+               }
+               $("#ProjectNameDropdown").html(s);
+           }
+      });
+
+        $.ajax({
+            type: "GET",
+            url: '@Url.Action("GetVendorNames", "BillPayment")',
+            success: function (data) {
+                var s = '<option value="">Please Select</option>';
+                for (var i = 0; i < data.length; i++) {
+                    s += '<option value="' + data[i] + '">' + data[i] + '</option>';
+                }
+                $("#VendorBills").html(s);
+            }
+        });
+
+
+        @*$('#btnDownloadDB').click(function () {
+            var url = '@Url.Action("DownloadDB", "Report")';
+            var SuperAdminCode = $('#SuperAdminCode').val();
+            window.location.href = url;
+        });*@
+
+        $('#btnExportPR').click(function () {
+            var url = '@Url.Action("WritePRToExcel", "Report")';
+            var SuperAdminCode = $('#SuperAdminCode').val();
+            var startDate = $('#PRStartDate').val();
+            var endDate = $('#PREndDate').val();
+            window.location.href = url + '?PRStartDate=' + startDate + "&PREndDate=" + endDate;
+        });
+        $('#btnExportPendingPR').click(function () {
+            var url = '@Url.Action("WritePendingPRToExcel", "Report")';
+            var SuperAdminCode = $('#SuperAdminCode').val();
+            window.location.href = url;
+        });
+        $('#btnExportPO').click(function () {
+            var url = '@Url.Action("WritePOToExcel", "Report")';
+            var SuperAdminCode = $('#SuperAdminCode').val();
+            //alert($('#SuperAdminCode').val());
+            var startDate = $('#POStartDate').val();
+            var endDate = $('#POEndDate').val();
+            //alert(url + '?PRStartDate=' + startDate + "&PREndDate=" + endDate + "&Code=" + SuperAdminCode);
+            window.location.href = url + '?POStartDate=' + startDate + "&POEndDate=" + endDate;
+        });
+        $('#btnExportPOItem').click(function () {
+            var url = '@Url.Action("WritePOItemToExcel", "Report")';
+            var startDate = $('#POItemStartDate').val();
+            var endDate = $('#POITemEndDate').val();
+            window.location.href = url + '?POStartDate=' + startDate + "&POEndDate=" + endDate;
+        });
+        $('#btnExportVendor').click(function () {
+            var url = '@Url.Action("WriteVendorToExcel", "Report")';
+            window.location.href = url;
+        });
+        $('#btnExportPODetails').click(function () {
+			var url = '@Url.Action("WritePOForProjectToExcel", "Report")';
+
+			var projectname = $('#ProjectNameDropdown').val();
+			// Replace '&' with '||' in the project name
+			var modifiedProjectName = projectname.replace(/&/g, '||');
+
+			window.location.href = url + '?ProjectName=' + encodeURIComponent(modifiedProjectName);
+
+            //window.location.href = url + '?ProjectName=' + projectname;
+        });
+        $('#btnExportChallan').click(function () {
+            var url = '@Url.Action("WriteChallanToExcel", "Report")';
+			var projectname = $('#ProjectNameDropdown').val();
+
+			// Replace '&' with '||' in the project name
+			var modifiedProjectName = projectname.replace(/&/g, '||');
+
+			window.location.href = url + '?ProjectName=' + encodeURIComponent(modifiedProjectName);
+		});
+		$('#btnExportBills').click(function () {
+            var url = '@Url.Action("WriteVendorBillsToExcel", "Report")';
+            var vendor = $('#VendorBills').val();
+			window.location.href = url + '?Vendor=' + vendor;
+        });
+		
+    });
+    function ValidatePassword() {
+            //Serialize the form datas.
+            var valdata = { "Pass": $("#SuperAdminCode").val() };
+            //to get alert popup
+            $.ajax({
+                url: '@Url.Action("ValidatePassword", "Report")',
+                type: "POST",
+                dataType: 'json',
+                contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+                data: valdata,
+                success: function (data) {
+                    if (data == 'Success') {
+
+                        $('#btnExportPR').attr("disabled", false);
+                        $('#btnExportPR').css({ backgroundColor: '#32CD32' });
+                        $('#btnExportPO').attr("disabled", false);
+                        $('#btnExportPO').css({ backgroundColor: '#32CD32' });
+                        $('#btnExportPOItem').attr("disabled", false);
+                        $('#btnExportPOItem').css({ backgroundColor: '#32CD32' });
+                        $('#btnExportVendor').attr("disabled", false);
+                        $('#btnExportVendor').css({ backgroundColor: '#32CD32' });
+                        $('#btnExportPendingPR').attr("disabled", false);
+                        $('#btnExportPendingPR').css({ backgroundColor: '#32CD32' });
+                        $('#btnExportPODetails').attr("disabled", false);
+                        $('#btnExportPODetails').css({ backgroundColor: '#32CD32' });
+                        $('#btnExportChallan').attr("disabled", false);
+						$('#btnExportChallan').css({ backgroundColor: '#32CD32' });
+						$('#btnExportBills').attr("disabled", false);
+						$('#btnExportBills').css({ backgroundColor: '#32CD32' });
+                        //$('#btnDownloadDB').attr("disabled", false);
+                        //$('#btnDownloadDB').css({ backgroundColor: '#32CD32' });
+                    }
+
+
+                    else {
+                        alert('Fail. Enter Valid Password.');
+                        $('#btnExportPR').attr("disabled", true);
+                        $('#btnExportPR').css({ backgroundColor: 'red' });
+                        $('#btnExportPO').attr("disabled", true);
+                        $('#btnExportPO').css({ backgroundColor: 'red' });
+                        $('#btnExportPOItem').attr("disabled", true);
+                        $('#btnExportPOItem').css({ backgroundColor: 'red' });
+                        $('#btnExportVendor').attr("disabled", true);
+                        $('#btnExportVendor').css({ backgroundColor: 'red' });
+                        $('#btnExportPendingPR').attr("disabled", true);
+                        $('#btnExportPendingPR').css({ backgroundColor: 'red' });
+                        $('#btnExportPODetails').attr("disabled", true);
+                        $('#btnExportPODetails').css({ backgroundColor: 'red' });
+                        $('#btnExportChallan').attr("disabled", true);
+						$('#btnExportChallan').css({ backgroundColor: 'red' });
+						$('#btnExportBills').attr("disabled", true);
+						$('#btnExportBills').css({ backgroundColor: 'red' });
+                    }
+                },
+                error: function (ex) {
+                    console.log(ex);
+                }
+            });
+    }
+
+</script>
+<div class="container">
+
+	<form class="form-horizontal" role="form" name="PRForm" id="PRForm" action="Report/ExportToExcel">
+		<h2>Data Export</h2>
+		<div class="row">
+			<div class="form-group col-md-12">
+				<label for="PR" class="col-sm-3 control-label">SuperAdmin Code</label>
+				<div class="col-sm-3">
+					<input type="password" id="SuperAdminCode" required="required" name="SuperAdminCode" placeholder="Super Admin Code" class="form-control" maxlength="4">
+				</div>
+				<input class="col-sm-2" type="button" id="btnCheckCode" name="btnCheckCode" value="Validate Code" onclick="ValidatePassword();" />
+			</div>
+		</div>
+		<div class="row">
+			<div class="form-group col-md-12">
+				<label for="PR" class="col-sm-3 control-label">Purchase Requisitions</label>
+				<div class="col-sm-3">
+					<input type="date" id="PRStartDate" required="required" name="PRStartDate" placeholder="PR Start Date" class="form-control">
+				</div>
+				<div class="col-sm-3">
+					<input type="date" id="PREndDate" required="required" name="PREndDate" placeholder="PR End Date" class="form-control">
+				</div>
+				<input class="col-sm-2" disabled="disabled" type="button" id="btnExportPR" name="btnExportPR" value="Export PR" />
+			</div>
+		</div>
+		<div class="row">
+			<div class="form-group col-md-12">
+				<label for="PR" class="col-sm-3 control-label">Purchase Order</label>
+				<div class="col-sm-3">
+					<input type="date" id="POStartDate" required="required" name="POStartDate" placeholder="PO Start Date" class="form-control">
+				</div>
+				<div class="col-sm-3">
+					<input type="date" id="POEndDate" required="required" name="POEndDate" placeholder="PO End Date" class="form-control">
+				</div>
+				<input class="col-sm-2" disabled="disabled" type="button" id="btnExportPO" name="btnExportPO" value="Export PO" />
+			</div>
+		</div>
+		<div class="row">
+			<div class="form-group col-md-12">
+				<label for="PR" class="col-sm-3 control-label">Purchase Order Items</label>
+				<div class="col-sm-3">
+					<input type="date" id="POItemStartDate" required="required" name="POItemStartDate" placeholder="PO Start Date" class="form-control">
+				</div>
+				<div class="col-sm-3">
+					<input type="date" id="POItemEndDate" required="required" name="POItemEndDate" placeholder="PO End Date" class="form-control">
+				</div>
+				<input class="col-sm-2" disabled="disabled" type="button" id="btnExportPOItem" name="btnExportPOItem" value="Export PO ITems" />
+			</div>
+		</div>
+		<div class="row">
+			<div class="form-group col-md-12">
+				<label for="PR" class="col-sm-3 control-label">Vendors</label>
+				<div class="col-sm-3">
+					<input class="col-sm-8" disabled="disabled" type="button" id="btnExportVendor" name="btnExportVendor" value="Export Vendor Details" />
+				</div>
+				<div class="col-sm-3">
+					&nbsp;
+				</div>
+				&nbsp;
+			</div>
+		</div>
+		<div class="row">
+			<div class="form-group col-md-12">
+				<label for="PR" class="col-sm-3 control-label">Pending PR List</label>
+				<div class="col-sm-3">
+					<input class="col-sm-8" disabled="disabled" type="button" id="btnExportPendingPR" name="btnExportPendingPR" value="Export Pending PR Details" />
+				</div>
+				<div class="col-sm-3">
+					&nbsp;
+				</div>
+				&nbsp;
+			</div>
+		</div>
+		<div class="row">
+			<div class="form-group col-md-12">
+				<label for="PR" class="col-sm-3 control-label">Project Names</label>
+				<div class="col-sm-3">
+					<select class="form-control" id="ProjectNameDropdown" name="ProjectNameDropdown"></select>
+				</div>
+				<div class="col-sm-3">
+					<input class="col-sm-8" disabled="disabled" type="button" id="btnExportPODetails" name="btnExportPODetails" value="Export PO Details" />
+				</div>
+				<div class="col-sm-3">
+					&nbsp;
+				</div>
+			</div>
+		</div>
+		<div class="row">
+			<div class="form-group col-md-12">
+				<label for="PR" class="col-sm-3 control-label">Outgoing Challan List</label>
+				<div class="col-sm-3">
+					<input class="col-sm-8" disabled="disabled" type="button" id="btnExportChallan" name="btnExportChallan" value="Export Challan Details" />
+				</div>
+				<div class="col-sm-3">
+					&nbsp;
+				</div>
+				&nbsp;
+			</div>
+		</div>
+
+		<div class="row">
+			<div class="form-group col-md-12">
+				<label for="PR" class="col-sm-3 control-label">Vendors</label>
+				<div class="col-sm-3">
+					<select class="form-control" id="VendorBills" name="VendorBills"></select>
+				</div>
+				<div class="col-sm-3">
+					<input class="col-sm-8" disabled="disabled" type="button" id="btnExportBills" name="btnExportBills" value="Export Bills" />
+				</div>
+				<div class="col-sm-3">
+					&nbsp;
+				</div>
+			</div>
+		</div>
+		@*<div class="row">
+			<div class="form-group col-md-12">
+				<label for="PR" class="col-sm-3 control-label">Download Database</label>
+				<div class="col-sm-3">
+					<input class="col-sm-8" disabled="disabled" type="button" id="btnDownloadDB" name="btnDownloadDB" value="Download Database" />
+				</div>
+				<div class="col-sm-3">
+					&nbsp;
+				</div>
+				&nbsp;
+			</div>
+		</div>*@
+		<div id="errormessage" class="error">
+			<span></span>
+		</div>
+	</form>
+
+</div> <!-- ./container  -->

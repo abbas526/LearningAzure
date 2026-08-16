@@ -1,0 +1,197 @@
+﻿@model OrientalApplication.Models.ChallanPrintViewModel
+<html>
+<head>
+    <link href="~/Content/PO_19Oct23_1.css" rel="stylesheet" />
+    <script src="~/Scripts/jquery-3.4.1.js"></script>
+    <script>
+        function printTwoCopies() {
+            $('#printButton').hide();
+
+            // Set up a print counter to control the number of copies
+            var printCounter = 0;
+
+            // Function to handle the print operation
+            function printPage() {
+                if (printCounter < 2) {
+                    if (printCounter == 0) {
+                        $('#PrintType').text("(Original Copy)");
+                    }
+                    else {
+                        $('#PrintType').text("(Duplicate Copy)");
+                    }
+                    printCounter++;
+
+                    var curURL = window.location.href;
+                    history.replaceState(history.state, '', '/');
+                    window.print();
+                    history.replaceState(history.state, '', curURL);
+
+                    //window.print();
+                }
+            }
+
+            // Attach the printPage function as a callback to the afterprint event
+            if (window.matchMedia) {
+                var mediaQueryList = window.matchMedia('print');
+                mediaQueryList.addListener(function (mql) {
+                    if (!mql.matches) {
+                        printPage();
+                    }
+                });
+            }
+
+            printPage();
+        }
+    </script>
+
+</head>
+<body>
+    <div class="book">
+        <div class="page">
+            <div class="subpage">
+                <div class="companyheader">
+                    <table border="0" width="100%">
+                        <tr>
+                            <td width="100%" style="text-align:center">
+                                @if (Model.POCompany.CompanyName.ToLower().Contains("fabritech"))
+                                {
+                                    <img src="~/Images/LogoFab.png" width="63" height="60" />
+                                }
+                                else
+                                {
+                                    <img src="~/Images/Logo.jpg" width="67" height="74" />
+                                }
+
+                                @Model.POCompany.CompanyName &nbsp;&nbsp;&nbsp;&nbsp;
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="corporateaddress">
+                    <b>Reg. Office:</b>	208 Comet, Guru Nanak Road, Bandra (West), Mumbai 400050.
+                </div>
+                <div class="corporateaddress">
+                    <b>Works:&nbsp;</b>	@Model.POCompany.CompanyAddress
+                </div>
+                <div class="corporateaddress">
+                    <b>Telephone:&nbsp;</b>26454970 &nbsp;&nbsp;&nbsp;
+                    <b>Email:&nbsp;</b>@Model.POCompany.Email
+                </div>
+                <br /><br />
+                <div align=center class="regularbold">
+                    <b>Delivery Challan</b>
+                </div>
+                <div align="center" class="regular">
+                    RETURNABLE GOODS &nbsp;&nbsp;<span id="PrintType" name="PrintType"></span>
+                </div>
+                <div>
+                    <br><br><br>
+                </div>
+                <div align="left" class="regular">
+                    <b>Challan Number:</b> @Model.Challan.ChallanNumber
+                    <span style="width: 300px; display: inline-block"></span>
+                    <b>Dated:</b>&nbsp;@Model.Challan.ChallanDate
+                    <br>
+                    <br />
+                    <b>Vendor Name: </b> @(Model.POVendor!=null ? Model.POVendor.VendorName : "")<br>
+                    <b>Contact Person: </b> @(Model.POVendor != null ? Model.POVendor.ContactPerson : "") <br>
+                    <b>Vendor Address: </b> @(Model.POVendor != null ? Model.POVendor.Address : "")<br>
+                    <b>Telephone:</b> @(Model.POVendor != null ? Model.POVendor.ContactNumber : "")
+                    <span style="width: 100px; display: inline-block"></span>
+                    <b>Email: </b>@(Model.POVendor != null ? Model.POVendor.Email : "")<br>
+                    <b>Vendor GST: </b>@(Model.POVendor != null ? Model.POVendor.GST : "")<br><br />
+                </div>
+                <div class="regular">
+                    <b>Vehicle No: </b>@(Model.Challan.VehicleNumber != null ? Model.Challan.VehicleNumber : "")
+                    <span style="width: 100px; display: inline-block"></span>
+                    <b>EWay Bill No: </b>@(Model.Challan.EWayBillNo != null ? Model.Challan.EWayBillNo : "")<br>
+
+                    <br>
+
+                </div>
+                <table class="podetails" width="100%" align="center" border="1px" cellpadding="0px" cellspacing="0px">
+                    <thead>
+                        <tr>
+                            <th>SL</th>
+                            <th>Project</th>
+                            <th>Description Of Goods</th>
+                            <th>HSN/SAC</th>
+                            <th>Quantity</th>
+                            <th>Rate</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{
+                            var counter = 1;
+                        }
+                        @foreach (var x in Model.Challan.OutgoingChallanItems)
+                        {
+
+                            <tr>
+                                <td align="center">@counter</td>
+                                <td align="center">@x.ProjectName</td>
+                                <td align="center" style="max-width: 180px; word-wrap: break-word; padding: 5px; ">@x.ItemDescription</td>
+                                <td align="center">@x.HSN</td>
+                                <td align="center">@x.Quantity</td>
+                                <td align="center">@x.Rate</td>
+                                <td align="center">@x.Amount</td>
+                            </tr>
+                            counter++;
+                        }
+
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th>&nbsp;</th>
+                            <th>&nbsp;</th>
+                            <th>&nbsp;</th>
+                            <th>&nbsp;</th>
+                            <th>&nbsp;</th>
+                            <th style="padding-left: 5px;">Total</th>
+                            <th style="padding-left: 5px;">@Model.Challan.FinalAmount</th>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <br />
+                <div class="regular">
+                    <b>Value of Material: @(Model.Challan.ValueOfMaterial != null ? Model.Challan.ValueOfMaterial : "")</b>
+                    <br><br />
+                </div>
+                <div class="regular">
+                    <b>Notes: </b>@(Model.Challan.Comment != null ? Model.Challan.Comment : "")
+                    <br><br />
+                </div>
+                <div class="regular">
+                    <b>Please Sign & Return the Duplicate Copy</b>
+                </div>
+                <br />
+                <br />
+                <div class="regular">
+                    <b>GST No:</b> @Model.POCompany.GSTNo
+                </div>
+                <br><br>
+                <div class="regular">
+                    For @Model.POCompany.CompanyName
+
+                    <br>
+                    <br>
+                    <br>
+                    @Model.POCompany.ContactPerson<br>
+                    Tel: @Model.POCompany.ContactPersonNumber
+                </div>
+                <button onclick="printTwoCopies()" id="printButton" name="printButton">Click to Print</button>
+                <script>
+                    function display() {
+                        $('#printButton').hide();
+                        window.print();
+                    }
+                </script>
+            </div>
+
+        </div>
+    </div>
+</body>
+</html>

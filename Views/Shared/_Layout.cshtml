@@ -1,0 +1,85 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oriental Admin Tool</title>
+    @Styles.Render("~/Content/css")
+    @Scripts.Render("~/bundles/modernizr")
+
+    <style>
+        /* Style for the submenu */
+        .submenu {
+            display: none;
+            position: absolute;
+            background-color: #fff; /* Set the background color for the submenu */
+            border: 1px solid #ccc; /* Add a border for the submenu */
+            z-index: 1; /* Ensure the submenu is displayed above other content */
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+
+            /* Style for submenu items */
+            .submenu li {
+                display: block;
+                padding: 10px;
+            }
+
+        /* Style for the parent menu item on hover */
+        .nav li:hover .submenu {
+            display: block; /* Show the submenu on hover */
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar navbar-inverse navbar-fixed-top">
+        <div class="container">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <h4>Oriental Admin Tool</h4>
+            </div>
+            <div class="navbar-collapse collapse">
+                <ul class="nav navbar-nav">
+                    @if (User.Identity.IsAuthenticated)
+                    {
+                        <li>@Html.ActionLink("Purchase Order", "Index", "PurchaseOrder")</li>
+                        <li>@Html.ActionLink("Purchase Requisition", "Index", "PurchaseRequisition")</li>
+                        <li>@Html.ActionLink("Outgoing Challan", "Index", "OutgoingChallan")</li>
+                        <li>@Html.ActionLink("Vendor Payment", "Index", "BillPayment")</li>
+                        @*<li>@Html.ActionLink("Vendor", "Index", "Vendor")</li>
+            <li>@Html.ActionLink("Project", "Index", "ProjectMaster")</li>
+            <li>@Html.ActionLink("Reports", "Index", "Report")</li>
+            <li>@Html.ActionLink("Item", "Index", "Item")</li>*@
+                        <li class="nav-item-has-submenu">
+                            <!-- Add a parent class to this li element -->
+                            @Html.ActionLink("More", "Index", "Report")
+                            <ul class="submenu">
+                                <!-- Create a submenu with the desired options -->
+                                <li>@Html.ActionLink("VendorPayment DashBoard", "VendorPaymentDashBoard", "BillPayment")</li>
+                                <li>@Html.ActionLink("Vendor", "Index", "Vendor")</li>
+                                <li>@Html.ActionLink("Project", "Index", "ProjectMaster")</li>
+                                <li>@Html.ActionLink("Reports", "Index", "Report")</li>
+                                <li>@Html.ActionLink("Item", "Index", "Item")</li>
+                            </ul>
+                        </li>
+                        <li>@Html.ActionLink("Logout", "Logout", "Accounts")</li>
+                    }
+                    else
+                    {
+                        <li>@Html.ActionLink("Login", "Login", "Accounts")</li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="container body-content" id="powered" name="powered">
+        @RenderBody()
+       
+    </div>
+</body>
+</html>

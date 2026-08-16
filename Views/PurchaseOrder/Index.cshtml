@@ -1,0 +1,858 @@
+﻿@{
+    ViewBag.Title = "Index";
+}
+<script src="~/Scripts/jquery-3.4.1.js"></script>
+<link href="~/Scripts/jquery-ui-1.12.1.min.css" rel="stylesheet" />
+@*<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.css">*@
+<link href="~/Content/Purchase.css" rel="stylesheet" />
+<script src="~/Scripts/jquery-ui-1.12.1.min.js"></script>
+@*<script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>*@
+<script src="~/Scripts/jquery.validate.min-1.19.js"></script>
+@*<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.1/jquery.validate.min.js"></script>*@
+
+<script src="~/Scripts/form-validation.js"></script>
+
+<style>
+	.popup {
+		display: none;
+		position: fixed; /* Changed to fixed to ensure it stays in the same position */
+		top: 50%; /* Center vertically */
+		left: 50%; /* Center horizontally */
+		transform: translate(-50%, -50%); /* Translate to adjust for the popup's own dimensions */
+		background-color: #fff;
+		border: 1px solid #000;
+		padding: 20px;
+		width: 300px;
+		height: 200px;
+		z-index: 1000; /* Ensure it's on top */
+	}
+	.popup-content {
+		padding: 30px; /* Adjust the value as needed */
+	}
+</style>
+
+<script>
+    var projectArr = [];
+
+    function ExportPRsForPO() {
+        var url = '@Url.Action("WritePRsForPOItemToExcel", "Report")';
+        var poNumber = $('#PONumber').val();
+        window.location.href = url + '?PONumber=' + poNumber;
+    }
+
+    function LoadData() {
+        $.ajax({
+            type: 'GET',
+            url: '@Url.Action("POGet","PurchaseOrder")',
+            dataType: 'json',
+            data: { PONumber: $('#PONumber').val() },
+            success: function (data) {
+                if (data == 'Not Found') {
+                    alert('PO Not found');
+                }
+                else {
+                    if (data.IsApproved == 'yes') {
+                        $('#ApprovalStatus').text("Approved");
+                        $('#ApprovalStatus').css("color", "green");
+                    }
+                    else if (data.IsApprovalRequested == 'yes') {
+                         $('#ApprovalStatus').text("Pending");
+                    }
+                    else {
+                          $('#ApprovalStatus').text("Not Applied");
+                    }
+                    $('#PONumber').val(data.PONumber);
+                    $('#Company').val(data.Company);
+                    $('#PODate').val(data.PODate);
+                    $('#ProjectRef').val(data.ProjectRef);
+                    $('#Vendor').val(data.Vendor);
+                    $('#QuoteRef').val(data.QuoteRef);
+                    $('#HSNNo').val(data.HSNNo);
+                    $('#DeliveryRequiredBy').val(data.DeliveryRequiredBy);
+                    $('#DeliveryInstructions').val(data.DeliveryInstructions);
+                    $('#DeliveryRequiredAt').val(data.DeliveryRequiredAt);
+                    $('#TransportationCharges').val(data.TransportationCharges);
+                    $('#PaymentTerms').val(data.PaymentTerms);
+                    $('#PORemarks').val(data.PORemarks);
+                    $('#PRTable tbody').empty();
+                    $('#AllProjects').val(data.AllProjects);
+                    $('#finalTotal').text(data.POAmount);
+                    $('#BillAmount').val(data.BillAmount);
+                    $('#BillNoAndDate').val(data.BillNoAndDate);
+                    $('#PaymentDate').val(data.PaymentDate);
+
+                      var isTotalChecked = data.DisplayTotal == 'true' ? true : false;
+
+                    if (isTotalChecked) {
+                        $('#DisplayTotal').prop('checked', true);
+                      } else {
+                        $('#DisplayTotal').prop('checked', false);
+                      }
+
+                    var isDiscountChecked = data.DisplayDiscount == 'true' ? true : false;
+
+                    if (isDiscountChecked) {
+                        $('#DisplayDiscount').prop('checked', true);
+                    } else {
+                        $('#DisplayDiscount').prop('checked', false);
+                    }
+
+                    var purchaseOrderItems = data.PurchaseOrderItems;
+                    for (i = 0; i < purchaseOrderItems.length; i++) {
+                        PREditTable(purchaseOrderItems[i].ProjectName, purchaseOrderItems[i].PRNumber,
+                            purchaseOrderItems[i].ItemName,
+                            purchaseOrderItems[i].ItemSize,
+                            purchaseOrderItems[i].Qty,
+                            purchaseOrderItems[i].Unit, purchaseOrderItems[i].POQuantity, purchaseOrderItems[i].Rate,
+							purchaseOrderItems[i].Discount, purchaseOrderItems[i].Drawing);
+                    }
+                }
+
+            },
+            error: function (ex) {
+                alert('PO Not Found');
+                console.log(ex);
+            }
+
+        });
+    }
+    function CalculateTotals() {
+        var total = 0;
+        var purchaseOrderItems = FillItemsArray();
+        if (purchaseOrderItems == null || purchaseOrderItems.length == 0)
+        {
+            return 0;
+        }
+
+        var finalQty = 0;
+        for (i = 0; i < purchaseOrderItems.length; i++) {
+            var rate = purchaseOrderItems[i].Rate;
+            var discount = 0;
+            finalQty = purchaseOrderItems[i].Qty;
+            if (purchaseOrderItems[i].POQuantity != null && purchaseOrderItems[i].POQuantity > 0) {
+                finalQty = purchaseOrderItems[i].POQuantity;
+            }
+            if (purchaseOrderItems[i].Discount != null && purchaseOrderItems[i].Discount != '') {
+                discount = purchaseOrderItems[i].Discount;
+            }
+            total = total + ((finalQty * rate) * ((100 - discount)/100));
+        }
+        total = Math.round(total);
+        $('#finalTotal').text(total);
+        $('#POAmount').val(total);
+        return total;
+
+    }
+
+    function PrintPO() {
+        if ($('#PONumber').val() == 'undefined' || $('#PONumber').val() == '') {
+            alert('Please Enter a valid PO Number');
+            return;
+        }
+        var url = '@Url.Action("PrintPO", "PurchaseOrder",new { PONumber = "po_number"})';
+        url = url.replace("po_number", $('#PONumber').val());
+        window.open(url,"_blank","top=20, left=20, scrollbars=yes width=800, height=500");
+    }
+
+    function ClearScreen() {
+        $('#PONumber').val('');
+        $('#Company').val($("#Company option:first").val());
+
+        $('#PODate').val('');
+        $('#ProjectRef').val($("#ProjectRef option:first").val());
+        $('#Vendor').val($("#Vendor option:first").val());
+        $('#QuoteRef').val('');
+        $('#HSNNo').val('');
+        $('#DeliveryRequiredBy').val('');
+        $('#DeliveryInstructions').val('');
+        $('#DeliveryRequiredAt').val('');
+        $('#TransportationCharges').val('');
+        $('#PaymentTerms').val($("#PaymentTerms option:first").val());
+        $('#PORemarks').val('');
+        $('#PRTable tbody').empty();
+        $('#AllProjects').val('');
+        projectArr = [];
+    }
+
+    function PRAddToTable(Project, PRNumber, Item, Qty, Unit, ItemSize, Drawing) {
+
+		var encodedDrawing = Drawing ? Drawing.replace(/'/g, "\\'") : "";
+		var linkColumn = Drawing ? "<a href='#' onclick=\"ShowPopUp('" + encodedDrawing + "')\"><span class='glyphicon glyphicon-plus'></span></a>" : "";
+
+    // Append product to the table
+        $("#PRTable tbody").append("<tr>" +
+			"<td>" + linkColumn + "</td>" +  // Add button only if Drawing has a value
+        "<td>" + Project + "</td>" +
+        "<td>" + PRNumber + "</td>" +
+        "<td>" + Item + "</td>" +
+        "<td>" + ItemSize + "</td>" +
+        "<td>" + Unit + "</td>" +
+        "<td>" + Qty + "</td>" +
+        "<td><input type='number' step='.01' style='width: 7em' id='" + "POQty_" + PRNumber + "'/>" + "</td>" +
+        "<td><input type='number' style='width: 7em' size='8' id='" + "Rate_" + PRNumber + "'/>" + "</td>" +
+        "<td><input type='number' style='width: 7em' size='8' id='" + "Discount_" + PRNumber + "'/>" + "</td>" +
+        "<td><input type='checkbox' id='" + "PRChk_" + PRNumber + "'/>" + "</td>" +
+        "</tr>");
+    }
+
+    function PREditTable(Project, PRNumber, Item, ItemSize, Qty, Unit, POQty, Rate, Discount, Drawing) {
+
+		var encodedDrawing = Drawing ? Drawing.replace(/'/g, "\\'") : "";
+		var linkColumn = Drawing ? "<a href='#' onclick=\"ShowPopUp('" + encodedDrawing + "')\"><span class='glyphicon glyphicon-plus'></span></a>" : "";
+
+        $("#PRTable tbody").append("<tr>" +
+			"<td>" + linkColumn + "</td>" +
+            "<td>" + Project + "</td>" +
+            "<td>" + PRNumber + "</td>" +
+            "<td>" + Item + "</td>" +
+            "<td>" + ItemSize + "</td>" +
+            "<td>" + Unit + "</td>" +
+            "<td>" + Qty + "</td>" +
+            "<td><input type='number' style='width: 7em' value='" + POQty + "' id='" + "POQty_" + PRNumber + "'/>" + "</td>" +
+            "<td><input type='number' style='width: 7em' value='" + Rate + "' id='" + "Rate_" + PRNumber + "'/>" + "</td>" +
+            "<td><input type='number' style='width: 7em' value='" + Discount + "' id='" + "Discount_" + PRNumber + "'/>" + "</td>" +
+            "<td><input type='checkbox' Checked='Checked' id='" + "PRChk_" + PRNumber + "'/>" + "</td>" +
+            "</tr>");
+    }
+
+    function GetPRs() {
+        var projectSelected = $("#ProjectRef").val();
+
+        if (projectArr.length > 0 && projectArr.includes(projectSelected) == true) {
+            alert('Project Already Selected');
+            return;
+        }
+
+         $.ajax({
+             type: "GET",
+             url: '@Url.Action("GetPRs","PurchaseOrder")',
+             data: { project: $("#ProjectRef").val() },
+             success: function (data) {
+                 if (data == null || data.length == 0) {
+                     alert("No Active PR Records");
+                 }
+                 else {
+                         projectArr.push(projectSelected);
+                         var projects = projectArr.join();
+                         $("#AllProjects").val(projects);
+
+                     for (var i = 0; i < data.length; i++) {
+                         PRAddToTable(data[i].ProjectRefDropdown, data[i].PRNo, data[i].ItemDropdown, data[i].Quantity, data[i].Unit,data[i].ItemSize,data[i].Drawing);
+                     }
+                     PRData = data;
+                 }
+             }
+         });
+    }
+
+    $(document).ready(function () {
+
+		$('.button').on('click', function (event) {
+			var buttonOffset = $(this).offset(); // Get the button's position
+			var popup = $('.popup'); // Select the popup
+
+			// Set the popup's position relative to the button
+			popup.css({
+				'top': buttonOffset.top + $(this).outerHeight() + 'px', // Place it just below the button
+				'left': buttonOffset.left + 'px', // Align it with the button's left side
+				'display': 'block' // Make it visible
+			});
+		});
+
+
+        $('#AllProjects').attr('readonly', true);
+
+        $.ajax({
+                   type: "GET",
+                   url: '@Url.Action("GetVendorNames","PurchaseOrder")',
+                   success: function (data) {
+                       var s = '<option value="">Please Select</option>';
+                       for (var i = 0; i < data.length; i++) {
+                           s += '<option value="' + data[i] + '">' + data[i] + '</option>';
+                       }
+                       $("#Vendor").html(s);
+                   }
+        });
+
+        $.ajax({
+                   type: "GET",
+                   url: '@Url.Action("GetPaymentTerms","PurchaseOrder")',
+                   success: function (data) {
+                       var s = '<option value="">Please Select</option>';
+                       for (var i = 0; i < data.length; i++) {
+                           s += '<option value="' + data[i] + '">' + data[i] + '</option>';
+                       }
+                       $("#PaymentTerms").html(s);
+                   }
+        });
+
+
+        $.ajax({
+            type: "GET",
+              url: '@Url.Action("GetProjectNames","PurchaseOrder")',
+              data: {
+                 search: $("#ProjectRef").val(),
+                 projects: projectArr
+              },
+               success: function (data) {
+                   var s = '<option value="">--Select--</option>';
+                   for (var i = 0; i < data.length; i++) {
+                       s += '<option value="' + data[i] + '">' + data[i] + '</option>';
+                   }
+                   $("#ProjectRef").html(s);
+               }
+        });
+
+        $.ajax({
+            type: "GET",
+              url: '@Url.Action("GetCompanyNames","PurchaseOrder")',
+               success: function (data) {
+                   var s = '<option value="">--Select--</option>';
+                   for (var i = 0; i < data.length; i++) {
+                       s += '<option value="' + data[i] + '">' + data[i] + '</option>';
+                   }
+                   $("#Company").html(s);
+               }
+        });
+
+
+
+        $('#PODate').datepicker({
+            dateFormat: "dd-mm-yy",
+        });
+        $('#DeliveryRequiredBy').datepicker({
+            dateFormat: "dd-mm-yy",
+        });
+        $('#PaymentDate').datepicker({
+            dateFormat: "dd-mm-yy",
+        });
+    });
+
+    function ShowPopUp(drawing) {
+		$('#popupTable tbody').empty();
+		$('#popupTable tbody').append(
+			`<tr>
+                <td style="padding:5px;">${drawing}</td>
+             </tr>`
+		);
+		// Show the popup
+		$('.popup').fadeIn();   
+		$('body').css('overflow', 'hidden');
+        }
+
+
+	function ClosePopup() {
+        $('.popup').fadeOut(); // Hide the popup with a fade-out effect
+		$('body').css('overflow', 'auto');
+	}
+
+    function ValidateForm() {
+
+        var valid = true;
+	    var message = "";
+
+        if ($('#PONumber').val() == "")
+        {
+            message += 'Purchase Order Number' + '<br>';
+        }
+        if ($('#Company').val() == "")
+        {
+            message += 'Company' + '<br>';
+        }
+        if ($('#PODate').val() == "")
+        {
+            message += 'PO Date' + '<br>';
+        }
+        if ($('#ProjectRef').val()=="")
+        {
+            message += 'Project Ref' + '<br>';
+        }
+        if ($('#Vendor').val() == "")
+        {
+            message += 'Vendor' + '<br>';
+        }
+        if ($('#QuoteRef').val() == "")
+        {
+            message += 'Quote ref' + '<br>';
+        }
+        //if ($('#HSNNo').val() == "")
+        //{
+        //    message += 'HSN No' + '<br>';
+        //}
+        if ($('#DeliveryRequiredBy').val() == "")
+        {
+            message += 'Date Required By' + '<br>';
+        }
+        if ($('#DeliveryInstructions').val() == "")
+        {
+            message += 'Delivery Instructions' + '<br>';
+        }
+        if ($('#DeliveryRequiredAt').val() == "")
+        {
+            message += 'Date Required At' + '<br>';
+        }
+        if ($('#TransportationCharges').val() == "")
+        {
+            message += 'Transportation Charges' + '<br>';
+        }
+        if ($('#PaymentTerms').val() == "")
+        {
+            message += 'Payment Terms' + '<br>';
+        }
+        var arr = FillItemsArray();
+        if (arr.length == 0)
+        {
+            message += 'Items table is blank Or none of checkboxes selected' + '<br>';
+        }
+
+        var msg = CheckItemTable();
+        if (msg != 'true') {
+            message += msg + '<br>';
+        }
+        if (message != "") {
+
+            $('#errormessage').html("* <b>Please fill below values</b> <br><br>" + message + "<br>");
+            return false;
+        }
+        else {
+
+            $('#errormessage').html();
+        }
+        return true;
+    }
+
+    function SaveData() {
+            //Serialize the form datas.
+        if (ValidateForm() == false) { return false; }
+
+        CalculateTotals();
+        var valdata = $("#POForm").serialize();
+        var POSaveSuccess = true;
+        // Save PO
+        $.ajax({
+            url: '@Url.Action("POSave","PurchaseOrder")',
+            type: "POST",
+            dataType: 'json',
+            contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+            data: valdata,
+            success: function (data) {
+                if (data != 'Success') {
+                    alert(data);
+                }
+                else {
+                    //alert('Inside POItemSave Else');
+                    POItemsSave();
+                }
+            },
+            failure: function (response) {
+                alert("Error");
+            }
+        });
+        if (POSaveSuccess == false) {
+            return false;
+        }
+
+    }
+
+    function CheckItemTable() {
+        var rateEntered = true;
+        $("#PRTable TBODY TR").each(function () {
+            var row = $(this);
+            var PurchaseOrderItem = {};
+            PurchaseOrderItem.PONumber = $('#PONumber').val();
+            PurchaseOrderItem.PRNumber = row.find("TD").eq(1).html();
+            PurchaseOrderItem.Rate = row.find("#Rate_" + PurchaseOrderItem.PRNumber).val();
+            PurchaseOrderItem.Discount = row.find("#Discount_" + PurchaseOrderItem.PRNumber).val();
+            PurchaseOrderItem.POQuantity = row.find("#POQty_" + PurchaseOrderItem.PRNumber).val();
+            var ch = row.find("#PRChk_" + PurchaseOrderItem.PRNumber).is(':checked');
+            if (ch == true) {
+                if (PurchaseOrderItem.Rate == null || PurchaseOrderItem.Rate == '') {
+                        rateEntered = false;
+                    }
+                }
+        });
+        if (rateEntered == false) {
+            return 'Please enter Rate when checkbox marked';
+        }
+        else {
+            return 'true';
+        }
+    }
+
+    function FillItemsArray() {
+        var purchaseOrderItems = new Array();
+
+        $("#PRTable TBODY TR").each(function () {
+            var row = $(this);
+            var PurchaseOrderItem = {};
+            PurchaseOrderItem.PONumber = $('#PONumber').val();
+            PurchaseOrderItem.PRNumber = row.find("TD").eq(2).html();
+            PurchaseOrderItem.Qty = row.find("TD").eq(6).html();
+            PurchaseOrderItem.Rate = row.find("#Rate_" + PurchaseOrderItem.PRNumber).val();
+            PurchaseOrderItem.Discount = row.find("#Discount_" + PurchaseOrderItem.PRNumber).val();
+            PurchaseOrderItem.POQuantity = row.find("#POQty_" + PurchaseOrderItem.PRNumber).val();
+            var ch = row.find("#PRChk_" + PurchaseOrderItem.PRNumber).is(':checked');
+            if (ch == true) {
+                    purchaseOrderItems.push(PurchaseOrderItem);
+                }
+        });
+        return purchaseOrderItems;
+    }
+
+    function POItemsSave() {
+
+        var purchaseOrderItems = FillItemsArray();
+
+        if (purchaseOrderItems.length > 0) {
+            console.log(purchaseOrderItems);
+            purchaseOrderItems = JSON.stringify({ 'purchaseOrderItems': purchaseOrderItems });
+            //Save PO Items
+            $.ajax({
+                contentType: 'application/json; charset=utf-8',
+                dataType: 'json',
+                type: 'POST',
+                url: '@Url.Action("POItemSave","PurchaseOrder")',
+                data: purchaseOrderItems,
+                success: function () {
+                    $('#errormessage').html("");
+                    $("#message").text('Record Saved Successfully');
+                    alert('Record Saved Successfully');
+                    setTimeout(function() { $("#message").hide(); }, 5000);
+                },
+                failure: function (response) {
+                    alert("Error");
+                }
+            });
+        }
+    }
+
+    function RemovePO() {
+        var poNumber = $('#PONumber').val();
+
+        var res = confirm("Are you sure to remove the PO and release all associated PRs.");
+        if (res == false) {
+            return 0;
+        }
+
+         $.ajax({
+             type: "GET",
+             url: '@Url.Action("RemovePO","PurchaseOrder")',
+             data: { poNumber: $('#PONumber').val(), poAdminCode: $('#POAdminCode').val() },
+             success: function (data) {
+                 if (data.includes('Error') == true) {
+                     alert(data);
+                 }
+                 else {
+                     alert('PO Record Successfully Removed and PRs Released');
+                     ClearScreen();
+                 }
+             }
+         });
+
+    }
+
+    function ApprovePO() {
+        var poNumber = $('#PONumber').val();
+
+        var res = confirm("Please confirm your approval action.");
+        if (res == false) {
+            return 0;
+        }
+
+         $.ajax({
+             type: "GET",
+             url: '@Url.Action("ApprovePO","PurchaseOrder")',
+             data: { poNumber: $('#PONumber').val(), poApproverCode: $('#POApproverCode').val() },
+             success: function (data) {
+                 if (data.includes('Error') == true) {
+                     alert(data);
+                 }
+                 else {
+                     alert('PO Successfully Approved.');
+                     $('#ApprovalStatus').text("Approved");
+                     $('#ApprovalStatus').css("color", "green");
+                 }
+             }
+         });
+
+    }
+    function RequestApproval() {
+        var poNumber = $('#PONumber').val();
+        if (poNumber == null || poNumber == '') {
+            alert('Please enter a PO Number for Approval');
+            return false;
+        }
+         $.ajax({
+             type: "GET",
+             url: '@Url.Action("SubmitForApproval", "PurchaseOrder")',
+             data: { poNumber: $('#PONumber').val()},
+             success: function (data) {
+                 if (data.includes('Error') == true) {
+                     alert(data);
+                 }
+                 else {
+                     alert('PO Approval Requested Successfully.');
+                     $('#ApprovalStatus').text("Pending");
+                 }
+             }
+         });
+
+    }
+</script>
+<div class="container">
+    <form class="form-horizontal" role="form" name="POForm" id="POForm">
+        <h2>Purchase Order Details</h2>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="PR" class="col-sm-3 control-label required">Purchase Order</label>
+                <div class="col-sm-4">
+                    <input type="text" id="PONumber" required="required" autocomplete="off" name="PONumber" data-required="true" placeholder="Purchase Order Number" class="form-control" autofocus>
+                </div>
+                <div class="col-sm-2">
+                    <a href="#" onclick="PrintPO();" title="Print PO" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
+                        <i class="glyphicon glyphicon-print"></i>
+                    </a>&nbsp;
+                    <a href="#" onclick="LoadData();" title="Search PO" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
+                        <i class="glyphicon glyphicon-search"></i>
+                    </a>&nbsp;
+                    <a href="#" onclick="ExportPRsForPO();" title="Export PRs for PO to Excel" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
+                        <i class="glyphicon glyphicon-save"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                <label for="Admin Code" class="col-sm-3 control-label required">Admin Code</label>
+                <div class="col-sm-6">
+                    <input type="password" size="4" name="POAdminCode" id="POAdminCode" autocomplete="off" />
+                    <input type="button" id="RemovePOButton" name="RemovePOButton" value="Delete PO" onclick="RemovePO();" />
+                    &nbsp;<input type="hidden" name="POAmount" id="POAmount" />
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="PR" class="col-sm-3 control-label ">Approval Status</label>
+                <div class="col-sm-4">
+                    &nbsp; <span style="font-weight: bold;color:blue;" id="ApprovalStatus"></span>
+                </div>
+                <div class="col-sm-2">
+                    <a href="#" onclick="RequestApproval();" title="Request for Approval" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
+                        <i class="glyphicon glyphicon-bell"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                <label for="Admin Code" class="col-sm-3 control-label ">Approver Code</label>
+                <div class="col-sm-6">
+                    <input type="password" size="4" name="POApproverCode" id="POApproverCode" autocomplete="off" />
+                    <input type="button" id="ApprovePOButton" name="ApprovePOButton" value="Approve PO" onclick="ApprovePO();" />
+                    
+
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="PR" class="col-sm-3 control-label required">Company</label>
+                <div class="col-sm-6">
+                    <select name="Company" id="Company" class="form-control" required="required">
+                        <option value="">Please Select</option>
+                        <option value="Oriental FabriTech Pvt. Ltd.">Oriental FabriTech Pvt. Ltd.</option>
+                        <option value="Oriental Mechanical Works Pvt. Ltd.">Oriental Mechanical Works Pvt. Ltd.</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                <label for="PR" class="col-sm-3 control-label required">P O Date</label>
+                <div class="col-sm-6">
+                    <input type="text" id="PODate" name="PODate" autocomplete="off" readonly="readonly" required="required" placeholder="Purchase Order Date" class="form-control">
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="ProjectRef" class="col-sm-3 control-label required">Project Ref</label>
+                <div class="col-sm-6">
+                    <select class="form-control" id="ProjectRef" name="ProjectRef" required="required"></select>
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                <input type="button" class="col-sm-3" id="btnDisplayPR" name="btnDisplayPR" value="Show PR" onclick="GetPRs();" />
+                &nbsp;
+                <input type="text" id="AllProjects" name="AllProjects" class="col-sm-3" />
+            </div>
+        </div>
+        <div class="row">
+			<div class="form-group col-md-12">
+				<table id="PRTable" name="PRTable" class="table table-bordered table-condensed table-striped">
+					<thead>
+						<tr style="background-color:lightblue">
+							<th>
+								-
+							</th>
+							<th>Project</th>
+							<th>PR Number</th>
+							<th>Item</th>
+							<th>Size</th>
+							<th>Unit</th>
+							<th>Qty</th>
+							<th>PO Qty</th>
+							<th>Rate</th>
+							<th>Discount</th>
+							<th>Select</th>
+						</tr>
+					</thead>
+					<tbody>
+					</tbody>
+					<tfoot>
+						<tr>
+                            <td>&nbsp;</td>
+							<td>&nbsp;</td>
+							<td>&nbsp;</td>
+							<td>&nbsp;</td>
+							<td>&nbsp;</td>
+							<td>&nbsp;</td>
+							<td>&nbsp;</td>
+							<td>&nbsp;</td>
+							<td>Total</td>
+							<td><span id="finalTotal">0.00</span></td>
+							<td>
+								<input type="button" id="CalculateTotal" name="CalculateTotal" onclick="CalculateTotals();" value="Calculate Total" />
+							</td>
+						</tr>
+					</tfoot>
+				</table>
+				<!-- Popup Modal -->
+				<div class="popup" style="display:none;">
+					<span class="close-icon" onclick="ClosePopup();" style="position: absolute; top: 10px; right: 10px; cursor: pointer;">
+						<span class="glyphicon glyphicon-remove"></span>
+					</span>
+					<table id="popupTable" border="1" class="popup-content" style="height: 100px; width: 250px;">
+						<thead>
+							<tr>
+								<th style="background-color:lightblue;padding-left:5px;">Drawing</th>
+								<!-- Add other columns as needed -->
+							</tr>
+						</thead>
+						<tbody>
+							<!-- The row will be appended here dynamically -->
+						</tbody>
+					</table>
+					@*<br />
+					<button class="close-button" onclick="ClosePopup();">Close</button>*@
+				</div>
+			</div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="email" class="col-sm-3 control-label required">Vendor Name</label>
+                <div class="col-sm-6">
+                    <select class="form-control" id="Vendor" name="Vendor" required="required"></select>
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                <label for="Specs" class="col-sm-3 control-label required">Quote Ref</label>
+                <div class="col-sm-6">
+                    <input type="text" id="QuoteRef" name="QuoteRef" required="required" placeholder="Quote Ref" class="form-control">
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="password" class="col-sm-3 control-label">HSN No</label>
+                <div class="col-sm-6">
+                    <input type="text" id="HSNNo" name="HSNNo" required="required" placeholder="HSN No" class="form-control">
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                <label for="Quantity" class="col-sm-3 control-label required">Delivery Required By</label>
+                <div class="col-sm-9">
+                    <input type="text" name="DeliveryRequiredBy" placeholder="Delivery Required By" autocomplete="off" readonly="readonly" required="required" id="DeliveryRequiredBy" class="form-control">
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="Height" class="col-sm-3 control-label required">Delivery Instructions</label>
+                <div class="col-sm-6">
+                    <input type="text" name="DeliveryInstructions" required="required" id="DeliveryInstructions" placeholder="Delivery Instructions" class="form-control">
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                <label for="Vendor" class="col-sm-3 control-label required">Delivery Required At</label>
+                <div class="col-sm-6">
+                    <input type="text" name="DeliveryRequiredAt" required="required" id="DeliveryRequiredAt" placeholder="Delivery Required At" class="form-control">
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="Rate" class="col-sm-3 control-label required">Transportation Charges</label>
+                <div class="col-sm-6">
+                    <input type="text" name="TransportationCharges" id="TransportationCharges" placeholder="Transportation" class="form-control" required="required">
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                <label for="Rate" class="col-sm-3 control-label required">Payment Terms</label>
+                <div class="col-sm-6">
+                    <select class="form-control" id="PaymentTerms" name="PaymentTerms" required="required">
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="Rate" class="col-sm-3 control-label">Remarks</label>
+                <div class="col-sm-6">
+                    <textarea class="form-control" id="PORemarks" name="PORemarks" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                <div>
+                    <label for="Rate">Display Total</label>
+
+                    <input type="checkbox" id="DisplayTotal" name="DisplayTotal">
+                    &nbsp;&nbsp;&nbsp;&nbsp;
+                    <label for="Rate">Display Discount</label>
+
+                    <input type="checkbox" id="DisplayDiscount" name="DisplayDiscount">
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="Rate" class="col-sm-3 control-label">Bill Amount</label>
+                <div class="col-sm-6">
+                    <input type="text" name="BillAmount" id="BillAmount" placeholder="Bill Amount" class="form-control">
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                <label for="Rate" class="col-sm-3 control-label">Bill No & Date</label>
+                <div class="col-sm-6">
+                    <input type="text" name="BillNoAndDate" id="BillNoAndDate" placeholder="Bill No And Date" class="form-control">
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="Rate" class="col-sm-3 control-label">Payment Date</label>
+                <div class="col-sm-6">
+                    <input type="text" name="PaymentDate" autocomplete="off" id="PaymentDate" placeholder="Payment Date" class="form-control">
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                &nbsp;
+            </div>
+        </div>
+        <div class="row text-center">
+            <input type="submit" id="btnSave" name="btnSave" value="Save All" onclick="SaveData();" />
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<input type="button" id="PrintButton" name="PrintButton" onclick="PrintPO();" value="Print PO" />
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<input type="button" id="ClearButton" name="ClearButton" onclick="ClearScreen();" value="Clear All" />
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<input type="button" id="ApproverButton" name="ApproverButton" onclick="RequestApproval();" value="Request for Approval" />
+        </div>
+        <div id="errormessage" class="error">
+        </div>
+        <div id="message" name="message" class="success">
+        </div>
+    </form><!-- /form -->
+</div> <!-- ./container -->

@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30703.110
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OrientalApplication", "OrientalApplication.csproj", "{135036FB-B9BA-40CB-BDAB-FE3A9122B5BA}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{135036FB-B9BA-40CB-BDAB-FE3A9122B5BA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{135036FB-B9BA-40CB-BDAB-FE3A9122B5BA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{135036FB-B9BA-40CB-BDAB-FE3A9122B5BA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{135036FB-B9BA-40CB-BDAB-FE3A9122B5BA}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {3E3D8D4D-B306-4DCA-9E8B-5013D3F11A2C}
+	EndGlobalSection
+EndGlobal

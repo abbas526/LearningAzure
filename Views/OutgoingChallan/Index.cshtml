@@ -1,0 +1,557 @@
+﻿@{
+    ViewBag.Title = "Index";
+}
+<script src="~/Scripts/jquery-3.4.1.js"></script>
+<link href="~/Scripts/jquery-ui-1.12.1.min.css" rel="stylesheet" />
+<link href="~/Content/Purchase.css" rel="stylesheet" />
+<script src="~/Scripts/jquery-ui-1.12.1.min.js"></script>
+<script src="~/Scripts/jquery.validate.min-1.19.js"></script>
+
+<script src="~/Scripts/form-validation.js"></script>
+
+<script>
+    var Id = 0;
+    var ProjectNames;
+    $(document).ready(function () {
+
+        $.ajax({
+            type: "GET",
+            url: '@Url.Action("GetVendorNames","OutgoingChallan")',
+            success: function (data) {
+                var s = '<option value="">Please Select</option>';
+                for (var i = 0; i < data.length; i++) {
+                    s += '<option value="' + data[i] + '">' + data[i] + '</option>';
+                }
+                $("#Vendor").html(s);
+            }
+        });
+
+        $.ajax({
+            type: "GET",
+              url: '@Url.Action("GetCompanyNames","PurchaseOrder")',
+               success: function (data) {
+                   var s = '<option value="">--Select--</option>';
+                   for (var i = 0; i < data.length; i++) {
+                       s += '<option value="' + data[i] + '">' + data[i] + '</option>';
+                   }
+                   $("#Company").html(s);
+               }
+        });
+        $('#ChallanDate').datepicker({
+            dateFormat: "dd-mm-yy",
+        });
+        $('#ReceivedDate').datepicker({
+            dateFormat: "dd-mm-yy",
+        });
+
+        $.ajax({
+            type: "GET",
+            url: '@Url.Action("GetProjectNames","PurchaseOrder")',
+            success: function (data) {
+                ProjectNames = data;
+                PRAddToTable();
+
+               }
+        });
+
+         // Add the first row by default
+    });
+    function AddNew() {
+        var c = $('#Company').val();
+        if (c == '') {
+            alert('Please select Company before adding new challan.');
+            return;
+        }
+        ClearScreen();
+        $('#Company').val(c);
+        $.ajax({
+            url: '/OutgoingChallan/GenerateChallanNo',
+            type: 'GET',
+            data: { Company: $("#Company").val() },
+            success: function (data) {
+                // Populate the form fields with data from the controller
+                $('#ChallanNumber').val(data.ChallanNumber);
+            },
+            error: function () {
+                alert('Error fetching Challan Number.');
+            }
+        });
+
+
+    }
+    function PRAddToTable() {
+        Id = Id + 1;
+        var newRow = $("<tr>" +
+            "<td><textarea style='width: 24em' id='" + "ItemDescription_" + Id + "'/>" + "</td>" +
+            "<td><input type='text' style='width: 7em' id='" + "HSN_" + Id + "'/>" + "</td>" +
+            "<td><input type='number' style='width: 7em' size='8' id='" + "Quantity_" + Id + "'/>" + "</td>" +
+            "<td><input type='number' style='width: 7em' size='8' id='" + "Rate_" + Id + "'/>" + "</td>" +
+            "<td><input type='number' disabled='true' step='0.01' style='width: 7em' size='8' id='" + "Amount_" + Id + "'/>" +
+            "<a href='#' onclick='CalculateAmount(" + Id + ");' title='Amount Calculator' data-toggle='popover' data-trigger='focus' data-placement='right'><i class='glyphicon glyphicon-usd'></i></a>" +
+            "</td>" +
+            "<td><select style='width: 18em' id='" + "ProjectName_" + Id + "'></select></td>" +
+            "<td><input type='button' class='delete-button' value='Delete' style='width: 7em' size='8' id='" + "delete_" + Id + "' onclick='DeleteItem(" + Id + ")'/></td>" +
+            "</tr>");
+
+        // Append the new row to the table body
+        $("#PRTable tbody").append(newRow);
+
+
+
+        // Populate the dropdown with project names
+        var projectDropdown = newRow.find("select");
+
+        // Create a new option element for "--Select--"
+        var selectOption = $("<option>", {
+            value: "",
+            text: "--Select--"
+        });
+
+        // Append the option to the select element
+        projectDropdown.append(selectOption);
+
+        for (var i = 0; i < ProjectNames.length; i++) {
+            //projectDropdown.append($("<option>").text(ProjectNames[i]));
+            var projectName = ProjectNames[i];
+            projectDropdown.append($("<option>", {
+                value: projectName,  // Set the value equal to the text
+                text: projectName    // Set the text to the same value
+            }));
+        }
+        $('#delete_1').hide();
+    }
+
+    function DeleteItem(id) {
+
+
+
+        // Ask for confirmation before deleting
+        var confirmation = window.confirm("Are you sure you want to delete this item?");
+
+        if (confirmation) {
+            // Remove the row with the corresponding ID
+            $("#ItemDescription_" + id).closest("tr").remove();
+        }
+    }
+
+    function CalculateAmount(Id) {
+        var quantity = parseFloat($("#Quantity_" + Id).val());
+        var rate = parseFloat($("#Rate_" + Id).val());
+        var amount = isNaN(quantity) || isNaN(rate) ? 0 : quantity * rate;
+        amount = amount.toFixed(2);
+        // Update the Amount field for the particular row
+        $("#Amount_" + Id).val(amount);
+    }
+
+    function FillItemsArray() {
+        var outgoingChallanItems = new Array();
+        var ct = 1;
+        $("#PRTable TBODY TR").each(function () {
+            var row = $(this);
+            var outgoingChallanItem = {};
+            outgoingChallanItem.ChallanNumber = $('#ChallanNumber').val();
+            outgoingChallanItem.ItemDescription = row.find("#ItemDescription_" + ct).val();
+            outgoingChallanItem.HSN = row.find("#HSN_" + ct).val();
+            outgoingChallanItem.Quantity = row.find("#Quantity_" + ct).val();
+            outgoingChallanItem.Rate = row.find("#Rate_" + ct).val();
+            outgoingChallanItem.Amount = row.find("#Amount_" + ct).val();
+            outgoingChallanItem.ProjectName = row.find("#ProjectName_" + ct).val();
+            outgoingChallanItems.push(outgoingChallanItem);
+            ct = ct + 1;
+        });
+        console.log(outgoingChallanItems);
+
+        return outgoingChallanItems;
+    }
+
+   function ChallanItemsSave() {
+
+       var challanItems = FillItemsArray();
+
+       if (challanItems.length > 0) {
+           console.log(challanItems);
+           challanItems = JSON.stringify({ 'challanItems': challanItems });
+
+            $.ajax({
+                contentType: 'application/json; charset=utf-8',
+                dataType: 'json',
+                type: 'POST',
+                url: '@Url.Action("ChallanItemSave","OutgoingChallan")',
+                data: challanItems,
+                success: function () {
+                    $('#errormessage').html("");
+                    $("#message").text('Record Saved Successfully');
+                    alert('Record Saved Successfully');
+                    setTimeout(function() { $("#message").hide(); }, 5000);
+                },
+                failure: function (response) {
+                    alert("Error");
+                }
+            });
+        }
+    }
+
+    function ChallanSave() {
+            //Serialize the form datas.
+        if (ValidateForm() == false) { return false; }
+
+        var valdata = $("#ChallanForm").serialize();
+        var POSaveSuccess = true;
+        // Save PO
+        $.ajax({
+            url: '@Url.Action("ChallanSave", "OutgoingChallan")',
+            type: "POST",
+            dataType: 'json',
+            contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+            data: valdata,
+            success: function (data) {
+                if (data != 'Success') {
+                    alert(data);
+                }
+                else {
+                    ChallanItemsSave();
+                }
+            },
+            failure: function (response) {
+                alert("Error");
+            }
+        });
+        if (POSaveSuccess == false) {
+            return false;
+        }
+
+    }
+
+    function ValidateForm() {
+
+        var valid = true;
+        var message = "";
+
+        if ($('#ChallanNumber').val() == "") {
+            message += 'Challan Number' + '<br>';
+        }
+        if ($('#ChallanDate').val() == "") {
+            message += 'ChallanDate' + '<br>';
+        }
+        if ($('#Company').val() == "") {
+            message += 'Company' + '<br>';
+        }
+        if ($('#Vendor').val() == "") {
+            message += 'Vendor' + '<br>';
+        }
+        if ($('#VehicleNumber').val() == "") {
+            message += 'Vehicle Number' + '<br>';
+        }
+		if ($('#ValueOfMaterial').val() === "") { //ValueOfMaterial
+            message += 'Value Of Material' + '<br>';
+        }
+		if ($('#ValueOfMaterial').val() !== "" && parseFloat($('#ValueOfMaterial').val()) >= 50000) {
+			if ($('#EWayBillNo').val() === "") {
+				message += 'EWay Bill NO' + '<br>';
+			}
+		}
+        if (message != "") {
+
+            $('#errormessage').html("* <b>Please fill below values</b> <br><br>" + message + "<br>");
+            return false;
+        }
+        else {
+            if (ValidateRows() == false) {
+                $('#errormessage').html("* <b>Please fill all values in all rows</b>");
+                return false;
+            }
+            $('#errormessage').html();
+        }
+        return true;
+    }
+
+    function ValidateRows() {
+        // Get all the rows in the table's tbody
+        var rows = $("#PRTable tbody tr");
+
+        // Initialize a flag to track if all rows are valid
+        var allRowsValid = true;
+
+        // Loop through each row and validate it
+        rows.each(function (index, row) {
+            if (!validateTableRow(row)) {
+                allRowsValid = false;
+                // You can add your own validation logic here or display an error message.
+
+            }
+        });
+
+        return allRowsValid;
+    }
+    function validateTableRow(row) {
+        var isValid = true;
+
+        // Loop through each input and textarea in the row
+        $(row).find('input[type="text"], input[type="number"], textarea,select').each(function () {
+            if ($(this).val() === '') {
+                isValid = false;
+                return false; // Stop the loop if any field is empty.
+            }
+            if ($(this).is('select')) {
+                if ($(this).val() === '--select--') {
+                    isValid = false;
+                    return false; // Stop the loop if the value is "--select--".
+                }
+            }
+        });
+        return isValid;
+    }
+    function LoadData() {
+        $.ajax({
+            url: '/OutgoingChallan/GetChallan', // Replace with the actual URL of your MVC Controller action
+            type: 'GET',
+            data: { challanNumber: $("#ChallanNumber").val() },
+            success: function (data) {
+                if (data.Result.includes('Error')) {
+                    alert(data.Result);
+                    ClearScreen();
+                    return;
+                }
+                // Populate the form fields with data from the controller
+                $('#ChallanNumber').val(data.ChallanNumber);
+                $('#ChallanDate').val(data.ChallanDate);
+                $('#Company').val(data.Company);
+                $('#Vendor').val(data.Vendor);
+                $('#VehicleNumber').val(data.VehicleNumber);
+                $('#EWayBillNo').val(data.EWayBillNo);
+                $('#Comment').val(data.Comment);
+                $('#ReceivedDate').val(data.ReceivedDate);
+                $('#ReceivedComment').val(data.ReceivedComment);
+                $('#ValueOfMaterial').val(data.ValueOfMaterial);
+				$('#VendorGST').text(data.VendorGST);				
+                // Populate the table with data from the controller
+                var tbody = $('#PRTable tbody');
+                tbody.empty(); // Clear existing rows
+                var ctr = 1;
+                $.each(data.OutgoingChallanItems, function (index, item) {
+                    var newRow = $('<tr>');
+                    newRow.append($('<td>').html('<textarea class="form-control"  Id="ItemDescription_' + ctr + '" rows="3">' + item.ItemDescription + '</textarea>'));
+                    newRow.append($('<td>').html('<input type="text" style="width: 7em"  Id="HSN_' + ctr + '" value="' + item.HSN  + '"/>'));
+                    newRow.append($('<td>').html('<input type="Number" size="8" style="width: 7em" Id="Quantity_' + ctr + '" value="' + item.Quantity + '"/>'));
+                    newRow.append($('<td>').html('<input type="Number" size="8" style="width: 7em" Id="Rate_' + ctr + '" value="' + item.Rate + '"/>'));
+                    newRow.append($('<td>').html('<input type="number" size="8" style="width: 7em" Id="Amount_' + ctr + '" disabled="true" value="' + item.Amount + '"/>'
+                        + '<a href="#" onclick="CalculateAmount(' + ctr + ');" title="Amount Calculator"><i class="glyphicon glyphicon-usd"></i></a>'));
+                    newRow.append($('<td>').html('<select style="width: 18em" Id="ProjectName_' + ctr + '" />'));
+                    newRow.append($('<td>').html('<input type="button" value="Delete"  onclick="DeleteItem('+ctr+')" Id=delete_' + ctr + ' >'   ));
+                    tbody.append(newRow);
+
+                    var projectDropdown = newRow.find("select");
+
+                    for (var i = 0; i < ProjectNames.length; i++) {
+                        //projectDropdown.append($("<option>").text(ProjectNames[i]));
+                        var projectName = ProjectNames[i];
+
+                        if (projectName === item.ProjectName) {
+                            projectDropdown.append($("<option>", {
+                                value: projectName,  // Set the value equal to the text
+                                text: projectName,    // Set the text to the same value
+                                selected: true
+                            }));
+                        }
+                        else {
+                            projectDropdown.append($("<option>", {
+                                value: projectName,  // Set the value equal to the text
+                                text: projectName    // Set the text to the same value
+                            }));
+                        }
+                    }
+
+                    ctr = ctr + 1;
+                    $('#delete_1').hide();
+                });
+                Id = ctr-1;
+            },
+            error: function () {
+                alert('Error fetching data from the controller.');
+            }
+        });
+
+
+    }
+    function PrintChallan() {
+        if ($('#ChallanNumber').val() == 'undefined' || $('#ChallanNumber').val() == '') {
+            alert('Please Enter a valid Challan Number');
+            return;
+        }
+        var url = '@Url.Action("PrintChallan", "OutgoingChallan",new { challanNumber = "challan_number"})';
+        url = url.replace("challan_number", $('#ChallanNumber').val());
+        window.open(url,"_blank","top=20, left=20, scrollbars=yes width=800, height=500");
+    }
+
+    function ClearScreen() {
+        $('#VendorGST').text('');
+        // Clear textboxes and textareas
+        $('input[type="text"], textarea').val('');
+        $('input[type="number"]').val('');
+        // Select the first option in dropdowns
+        $('select').prop('selectedIndex', 0);
+
+        // Uncheck checkboxes
+        $('input[type="checkbox"]').prop('checked', false);
+
+        // Unselect radio buttons
+        $('input[type="radio"]').prop('checked', false);
+
+        // Remove all rows except the first one in the table with the ID "mytable"
+        $('#PRTable tr:gt(1)').remove();
+
+        // Clear all textboxes in the first row
+        $('#PRTable tr:first input[type="text"]').val('');
+        $('#PRTable tr:first input[type="number"]').val(null);
+        // Reset dropdown values to the first option in the first row
+        $('#PRTable tr:first').prop('selectedIndex', 0);
+    }
+
+    function LoadGST() {
+		$.ajax({
+			url: '/OutgoingChallan/GetVendorGST', // Replace with the actual URL of your MVC Controller action
+			type: 'GET',
+			data: { vendorName: $("#Vendor").val() },
+            success: function (data) {
+                
+                $('#VendorGST').text(data);
+			},
+			error: function () {
+				alert('Error fetching data from the controller.');
+			}
+		});
+	}
+</script>
+<div class="container">
+	<form class="form-horizontal" role="form" name="ChallanForm" id="ChallanForm">
+		<h2>Outgoing Challan</h2>
+		<div class="row">
+			<div class="form-group col-md-6">
+				<label for="PR" class="col-sm-3 control-label required">Company</label>
+				<div class="col-sm-6">
+					<select name="Company" id="Company" class="form-control" required="required">
+					</select>
+				</div>
+			</div>
+			<div class="form-group col-md-6">
+				<label for="email" class="col-sm-3 control-label required">Vendor Name</label>
+				<div class="col-sm-6">
+					<select class="form-control" id="Vendor" name="Vendor" required="required" onchange="LoadGST();"></select>
+				</div>
+			</div>
+		</div>
+
+		<div class="row">
+			<div class="form-group col-md-6">
+                &nbsp;
+			</div>
+			<div class="form-group col-md-6">
+				<label for="email" class="col-sm-3 control-label">Vendor GST</label>
+				<div class="col-sm-6">
+					<span id="VendorGST" name="VendorGST" style="color:blue"></span>
+				</div>
+			</div>
+		</div>
+
+		<div class="row">
+			<div class="form-group col-md-6">
+				<label for="PR" class="col-sm-3 control-label required">Challan Number</label>
+				<div class="col-sm-4">
+					<input type="text" id="ChallanNumber" required="required" autocomplete="off" name="ChallanNumber" data-required="true" placeholder="Challan Number" class="form-control" autofocus>
+				</div>
+				<div class="col-sm-2">
+					<a href="#" onclick="PrintChallan();" title="Print PO" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
+						<i class="glyphicon glyphicon-print"></i>
+					</a>&nbsp;
+					<a href="#" onclick="LoadData();" title="Search Challan" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
+						<i class="glyphicon glyphicon-search"></i>
+					</a>&nbsp;
+					<a href="#" onclick="AddNew();" title="Add Challan" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
+						<i class="glyphicon glyphicon-plus"></i>
+					</a>&nbsp;
+				</div>
+			</div>
+			<div class="form-group col-md-6">
+				<label for="Admin Code" class="col-sm-3 control-label required">Challan Date</label>
+				<div class="col-sm-6">
+					<input type="text" name="ChallanDate" id="ChallanDate" autocomplete="off" readonly="readonly" required="required" placeholder="Challan Date" class="form-control" />
+				</div>
+			</div>
+		</div>
+
+		<div class="row">
+			<div class="form-group col-md-6">
+				<label for="email" class="col-sm-3 control-label required">Vehicle Number</label>
+				<div class="col-sm-6">
+					<input type="text" name="VehicleNumber" id="VehicleNumber" required="required" placeholder="Vehicle Number" class="form-control" />
+				</div>
+			</div>
+			<div class="form-group col-md-6">
+				<label for="Specs" class="col-sm-3 control-label">EWay Bill No</label>
+				<div class="col-sm-6">
+					<input type="text" id="EWayBillNo" name="EWayBillNo" placeholder="EWay Bill No" class="form-control">
+				</div>
+			</div>
+		</div>
+		<div class="row">
+			<div class="form-group col-md-6">
+				<label for="email" class="col-sm-3 control-label">Comment</label>
+				<div class="col-sm-6">
+					<textarea rows="3" cols="30" name="Comment" id="Comment" placeholder="Comment" class="form-control"></textarea>
+				</div>
+			</div>
+			<div class="form-group col-md-6">
+				<label for="Specs" class="col-sm-3 control-label required">Value of Material</label>
+				<div class="col-sm-6">
+					<input type="number" id="ValueOfMaterial" name="ValueOfMaterial" required="required" placeholder="Value Of Material" class="form-control">
+				</div>
+			</div>
+		</div>
+		<div class="row">
+			<div class="form-group col-md-12">
+				<table id="PRTable" name="PRTable" class="table table-bordered table-condensed table-striped">
+					<thead>
+						<tr style="background-color:lightblue">
+							<th>Item Description</th>
+							<th>HSN</th>
+							<th>Quantity</th>
+							<th>Rate</th>
+							<th>Amount</th>
+							<th>Project Name</th>
+							<th><input type="Button" id="btnAddItem" name="btnAddItem" onclick="PRAddToTable()" value="Add Item" /></th>
+						</tr>
+					</thead>
+					<tbody>
+					</tbody>
+				</table>
+			</div>
+		</div>
+
+		<br />
+		<div class="row">
+			<div class="form-group col-md-6">
+				<label for="email" class="col-sm-3 control-label">Item(s) Received Date</label>
+				<div class="col-sm-6">
+					<input type="text" id="ReceivedDate" name="ReceivedDate" required="required" placeholder="Received Date" class="form-control">
+				</div>
+			</div>
+			<div class="form-group col-md-6">
+				<label for="Specs" class="col-sm-3 control-label">Notes for Items Received</label>
+				<div class="col-sm-6">
+					<textarea rows="2" cols="30" name="ReceivedComment" id="ReceivedComment" class="form-control"></textarea>
+				</div>
+			</div>
+		</div>
+
+		<div class="row text-center">
+			<input type="button" id="btnSave" name="btnSave" value="Save All" onclick="ChallanSave();" />
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<input type="button" id="PrintButton" name="PrintButton" onclick="PrintChallan();" value="Print" />
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<input type="button" id="ClearButton" name="ClearButton" onclick="ClearScreen();" value="Clear All" />
+		</div>
+		<div id="errormessage" class="error">
+		</div>
+		<div id="message" name="message" class="success">
+		</div>
+	</form>
+</div>
+

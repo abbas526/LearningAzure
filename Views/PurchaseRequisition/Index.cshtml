@@ -1,0 +1,1204 @@
+﻿@{
+	ViewBag.Title = "Index";
+}
+
+<link href="~/Scripts/jquery-ui-1.12.1.min.css" rel="stylesheet" />
+
+<script src="~/Scripts/jquery-3.4.1.js"></script>
+<script src="~/Scripts/jquery-ui-1.12.1.min.js"></script>
+<script src="~/Scripts/jquery.validate.min-1.19.js"></script>
+<script src="~/Scripts/form-validation.js"></script>
+<link href="~/Content/Purchase.css" rel="stylesheet" />
+
+<!-- DataTables CSS -->
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.24/css/jquery.dataTables.css">
+
+<!-- DataTables JS -->
+<script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.js"></script>
+
+
+<style>
+	#errormessage {
+		color: red;
+	}
+
+	hr {
+		border-top: 1px solid blue;
+	}
+
+	#btnSave {
+		background-color: #008CBA; /* Green */
+		border: none;
+		color: white;
+		padding: 5px 5px;
+		text-align: center;
+		text-decoration: none;
+		display: inline-block;
+		font-size: 16px;
+		margin: 4px 2px;
+		cursor: pointer;
+	}
+
+	#btnPOSave {
+		background-color: #008CBA;
+		border: none;
+		color: white;
+		padding: 5px 5px;
+		text-align: center;
+		text-decoration: none;
+		display: inline-block;
+		font-size: 16px;
+		margin: 4px 2px;
+		cursor: pointer;
+	}
+
+	#btnReceivedSave {
+		background-color: #0094ff;
+		border: none;
+		color: white;
+		padding: 5px 5px;
+		text-align: center;
+		text-decoration: none;
+		display: inline-block;
+		font-size: 16px;
+		margin: 4px 2px;
+		cursor: pointer;
+	}
+</style>
+
+<script type="text/javascript">
+    var VendorList; var Id = 0;
+    function PrintPR() {
+        if ($('#PRNo').val() == 'undefined' || $('#PRNo').val() == '') {
+            alert('Please Enter a valid PR Number');
+            return;
+        }
+        var url = '@Url.Action("PrintPR", "PurchaseRequisition",new { PRNumber = "pr_number"})';
+        url = url.replace("pr_number", $('#PRNo').val());
+        window.open(url,"_blank","top=20, left=20, scrollbars=yes width=800, height=500");
+    }
+
+	function PRAddToTable(PRNumber, Item, Qty, Size, Unit, MOC, PRDate, DateRequired, Remark, IsAllItemReceived, AssignedToPO) {
+		// Append product to the table
+		var newRow = $("<tr>" +
+			"<td><a href='#' onclick=LoadPR('" + PRNumber + "')>" + PRNumber + "</a></td>" +
+			"<td>" + Item + "</td>" +
+			"<td style='width:15%;'>" + Size + "</td>" +
+			"<td>" + MOC + "</td>" +
+			"<td>" + Qty + "</td>" +
+			"<td>" + Unit + "</td>" +
+			"<td>" + PRDate + "</td>" +
+			"<td>" + DateRequired + "</td>" +
+			"<td>" + Remark + "</td>" +
+			"<td>" + IsAllItemReceived + "</td>" +
+			"</tr>");
+
+		// Check the value of the 10th column and apply background color
+		var col10Value = IsAllItemReceived; // Assuming `IsAllItemReceived` is the value in the 10th column
+
+		if (col10Value != null && col10Value.indexOf('yes') >= 0) {
+			newRow.css('background-color', '#c8f7c8');
+		}
+        else {
+			if (AssignedToPO != '' && AssignedToPO !== undefined && AssignedToPO != 'Not Mapped') {
+				newRow.css('background-color', 'yellow');
+			}
+        }
+
+
+		// Append the new row to the table
+		$("#PRTable tbody").append(newRow);
+	}
+
+    $(document).ready(function () {
+
+        $("#ItemDropdownPRTable").change(function () {
+            var selectedItem = $(this).val();
+
+            $("#PRTable tbody tr").each(function () {
+                var rowItem = $(this).find("td:eq(1)").text().trim(); // Item column = 2nd col
+                if (selectedItem === "" || rowItem === selectedItem) {
+                    $(this).show();
+                } else {
+                    $(this).hide();
+                }
+            });
+        });
+
+        $("#MOCDropdownPRTable").change(function () {
+            var selectedItem = $(this).val();
+
+            $("#PRTable tbody tr").each(function () {
+                var rowItem = $(this).find("td:eq(3)").text().trim(); 
+                if (selectedItem === "" || rowItem === selectedItem) {
+                    $(this).show();
+                } else {
+                    $(this).hide();
+                }
+            });
+        });
+
+        $.ajax({
+                    type: "GET",
+                    url: '@Url.Action("GetVendorNames","PurchaseOrder")',
+                    success: function (data) {
+                       VendorList = data;
+                       var s = '<option value="">Please Select</option>';
+                       for (var i = 0; i < data.length; i++) {
+                           s += '<option value="' + data[i] + '">' + data[i] + '</option>';
+                       }
+                        $("#Vendor").html(s);
+                    }
+        });
+
+        $.ajax({
+                   type: "GET",
+                   url: '@Url.Action("GetVendorNames","PurchaseOrder")',
+                   success: function (data) {
+                       var s = '<option value="">Please Select</option>';
+                       for (var i = 0; i < data.length; i++) {
+                           s += '<option value="' + data[i] + '">' + data[i] + '</option>';
+                       }
+                       $("#VendorForPO").html(s);
+                   }
+        });
+
+
+        $("#PRNo").autocomplete({
+            source: function (request, response) {
+                $.ajax({
+                    url: '@Url.Action("GetSearchValue","PurchaseRequisition")',
+                    dataType: "json",
+                    data: { search: $("#PRNo").val() },
+                    success: function (data) {
+
+                        response($.map(data, function (item) {
+                            return { label: item, value: item };
+                        }));
+                    },
+                    error: function (xhr, status, error) {
+                        alert("Error");
+                    }
+                });
+            }
+        });
+
+          $.ajax({
+               type: "GET",
+               url: '@Url.Action("GetProjectNames","PurchaseRequisition")',
+               success: function (data) {
+                   var s = '<option value="">--Select--</option>';
+                   for (var i = 0; i < data.length; i++) {
+                       s += '<option value="' + data[i] + '">' + data[i] + '</option>';
+                   }
+                   $("#ProjectRefDropdown").html(s);
+               }
+          });
+
+          $.ajax({
+               type: "GET",
+               url: '@Url.Action("GetOldProjectNames","PurchaseRequisition")',
+               success: function (data) {
+                   var s = '<option value="">--Select--</option>';
+                   for (var i = 0; i < data.length; i++) {
+                       s += '<option value="' + data[i] + '">' + data[i] + '</option>';
+                   }
+                   $("#OldProjects").html(s);
+               }
+          });
+
+
+         $.ajax({
+               type: "GET",
+               url: '@Url.Action("GetItemNames","PurchaseRequisition")',
+               success: function (data) {
+                   var s = '<option value="">--Select--</option>';
+                   for (var i = 0; i < data.length; i++) {
+                       s += '<option value="' + data[i] + '">' + data[i] + '</option>';
+                   }
+                   $("#ItemDropdown").html(s);
+             }
+         });
+
+        var rowCount = $("#ItemReceivedTable tbody tr").length;
+        if (rowCount == 0) {
+            $('input[name="IsAllItemReceived"][value="yes"]').prop('checked', false);
+            $('input[name="IsAllItemReceived"][value="no"]').prop('checked', false);
+        }
+
+
+        $('#QuickPOSection').hide();
+        $('#ItemReceivedSection').hide();
+        $('#btnSave').prop('disabled', true);
+        $('#PRDate').datepicker({
+            dateFormat: "dd-mm-yy",
+        });
+        $('#DateRequired').datepicker({
+            dateFormat: "dd-mm-yy",
+        });
+    });
+
+</script>
+
+<script>
+
+
+    function ShowSaveSuccess(res) {
+        $("#message").text(res);
+        alert(res);
+        setTimeout(function() { $("#message").hide(); }, 5000);
+    }
+    function AddData() {
+        var pr = $("#UserCode").val();
+         $("#PRNo").val('');
+         $('#PRNo').prop('disabled', true);
+         $('#btnSave').prop('disabled', false);
+    }
+    function SaveData() {
+        debugger;
+        if (ValidateForm() == false) {
+            return false;
+        }
+        $('#errormessage').empty();
+            //Serialize the form datas.
+            var valdata = $("#PRForm").serialize();
+            //to get alert popup
+        $.ajax({
+            url: '@Url.Action("PRSave","PurchaseRequisition")',
+            type: "POST",
+            dataType: 'json',
+            contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+            data: valdata,
+            success: function (data) {
+                if (data.Result == 'Error' || data.Result == 'Record Not Found' || data.Result.includes('Error') == true) {
+                    alert(data.Result);
+                    }
+                else if (data != null && data.PRNumber !== 'undefined' && data.PRNumber != '') {
+                    if (data.IsNew == 'true') {
+                        PRAddToTable(data.PRNo, data.ItemDropdown, data.Quantity, data.ItemSize, data.Unit, data.Specs, data.PRDate, data.DateRequired, data.Remark, data.IsAllItemReceived,'');
+                    }
+                     $('#PRNo').val(data.PRNo);
+                     ShowSaveSuccess(data.Result);
+                    }
+                    else {
+                        alert(data);
+                    }
+                },
+                error: function (ex) {
+                    console.log(ex);
+                }
+            });
+        //ShowSaveSuccess();
+        $('#btnSave').prop('disabled', true);
+        $('#PRNo').prop('disabled', false);
+    }
+    function LoadPR(PRNumber) {
+        $("#PRNo").val(PRNumber);
+        LoadData();
+    }
+
+    function LoadData() {
+        $.ajax({
+            type: 'GET',
+            url: '@Url.Action("PRGet","PurchaseRequisition")',
+            dataType: 'json',
+            data: { PRNo: $('#PRNo').val() },
+            success: function (data) {
+                //debugger;
+                console.log(data);
+                $("#PRDate").val(data.PRDate);
+                $("#PRNo").val(data.PRNo);
+                $("#ProjectRefDropdown").val(data.ProjectRefDropdown);
+                $("#ItemDropdown").val(data.ItemDropdown);
+                $("#ItemSize").val(data.ItemSize);
+                $("#Specs").val(data.Specs);
+                $("#Quantity").val(data.Quantity);
+                $("#DateRequired").val(data.DateRequired);
+                $("#Remark").val(data.Remark);
+				$("#Drawing").val(data.Drawing);
+                $("#Unit").val(data.Unit);
+                $("#UserCode").val(data.UserCode);
+				$("#PONumber").text(data.AssociatedPONumbers);
+                //$("#ItemReceivedDate").val(data.ItemReceivedObj.ItemReceivedDate);
+                //$("#ItemReceivedOK").val(data.ItemReceivedObj.ItemReceivedOK);
+                //$("#ItemReceivedComment").val(data.ItemReceivedObj.ItemReceivedComment);
+                //$('#Vendor').val(data.ItemReceivedObj.Vendor);
+                //$('#ItemReceivedChallanNo').val(data.ItemReceivedObj.ItemReceivedChallanNo);
+                $("#NewItem").val('');
+                if (data.IsAllItemReceived === 'yes') {
+                    $('input[name="IsAllItemReceived"][value="yes"]').prop('checked', true);
+                    $('input[name="IsAllItemReceived"][value="no"]').prop('disabled', true);
+                    $('#btnAddItem').prop('disabled', true);
+                }
+                if (data.IsAllItemReceived === 'no') {
+                    $('input[name="IsAllItemReceived"][value="no"]').prop('checked', true);
+                }
+                if (isEmpty(data.IsAllItemReceived)) {
+                    $('input[name="IsAllItemReceived"][value="yes"]').prop('checked', false);
+                    $('input[name="IsAllItemReceived"][value="no"]').prop('checked', false);
+                    $('input[name="IsAllItemReceived"][value="no"]').prop('enabled', true);
+                    $('input[name="IsAllItemReceived"][value="yes"]').prop('enabled', true);
+                }
+                // Populate the table with data from the controller
+                var tbody = $('#ItemReceivedTable tbody');
+                tbody.empty(); // Clear existing rows
+                var ctr = 1;
+                if (data.ItemReceivedList != null && data.ItemReceivedList.length > 0) {
+                    $.each(data.ItemReceivedList, function (index, item) {
+                        var newRow = $('<tr>');
+
+                        newRow.append($('<td>').html('<input type="text" style="width: 12em"  Id="ItemReceivedChallanNo_' + ctr + '" value="' + item.ItemReceivedChallanNo + '"/>'));
+                        newRow.append($('<td>').html('<input type="text" size="8" class="RecDate" style="width: 7em" Id="ItemReceivedDate_' + ctr + '" value="' + item.ItemReceivedDate + '"/>'));
+                        newRow.append($('<td>').html('<input type="text" size="8" style="width: 7em" Id="ItemReceivedOK_' + ctr + '" value="' + item.ItemReceivedOK + '"/>'));
+                        //newRow.append($('<td>').html('<textarea rows=2 cols=20 Id="Comment_' + ctr + '" value="' + item.ItemReceivedComment + '"/></textarea>'));
+                        newRow.append($('<td>').html('<textarea  Id="ItemReceivedComment_' + ctr + '" rows="2">' + item.ItemReceivedComment + '</textarea>'));
+                        if (ctr === 1) {
+                            newRow.append($('<td>').html('<select style="width: 18em" Id="Vendor_' + ctr + '" />'));
+                        }
+                        else {
+                            newRow.append($('<td>').html(''));
+                        }
+                        newRow.append($('<td>').html('<input type="button" value="Delete"  onclick="DeleteItem(' + ctr + ')" Id=delete_' + ctr + ' >'));
+                        tbody.append(newRow);
+
+                        var vendorDropdown = newRow.find("select");
+
+                        for (var i = 0; i < VendorList.length; i++) {
+                            var vendorName = VendorList[i];
+
+                            if (vendorName === item.Vendor) {
+                                vendorDropdown.append($("<option>", {
+                                    value: vendorName,  // Set the value equal to the text
+                                    text: vendorName,    // Set the text to the same value
+                                    selected: true
+                                }));
+                            }
+                            else {
+                                vendorDropdown.append($("<option>", {
+                                    value: vendorName,  // Set the value equal to the text
+                                    text: vendorName    // Set the text to the same value
+                                }));
+                            }
+                        }
+
+                        ctr = ctr + 1;
+                        $('#delete_1').hide();
+                        $('.RecDate').datepicker({
+                            dateFormat: "dd-mm-yy",
+                        });
+                        ////for multiple row .. disable the single radio button
+                        //var c = $("#ItemReceivedTable tbody tr").length;
+                        //if (c > 1) {
+                        //    $('input[name="IsAllItemReceived"][value="true"]').prop('disabled', true);
+                        //    $('input[name="IsAllItemReceived"][value="false"]').prop('checked', true);
+                        //}
+                    });
+                }
+                else {
+                    // If any specific PR is not having any Item Received data
+                    ItemReceivedAddToTable();
+                }
+
+            },
+            error: function (ex) {
+                alert('PR Not Found');
+                console.log(ex);
+            }
+        });
+        $('#btnSave').prop('disabled', false);
+
+        return false;
+    }
+    function isEmpty(value) {
+        return (value == null || (typeof value === "string" && value.trim().length === 0));
+    }
+    function ValidateForm() {
+
+        var message = "";
+
+        if ($('#UserCode').val() == "")
+            message += 'User Code<br>';
+
+        if ($('#PRDate').val() == "")
+            message += 'Purchase Requisition Date<br>';
+
+        if ($('#ItemDropdown').val() == "" && $('#NewItem').val() == "")
+            message += 'Item<br>';
+
+        if ($('#ProjectRefDropdown').val() == "")
+            message += 'Project Ref<br>';
+
+        if ($('#ItemSize').val() == "")
+            message += 'Size<br>';
+
+        if ($('#Specs').val() == "")
+            message += 'Spec/MOC<br>';
+
+        if ($('#Quantity').val() == "")
+            message += 'Quantity<br>';
+        else if (!$.isNumeric($('#Quantity').val()))
+            message += 'Quantity is not numeric<br>';
+
+        if ($('#DateRequired').val() == "")
+            message += 'Date Required<br>';
+
+        if ($('#Unit').val() == "")
+            message += 'Unit of Measurement<br>';
+
+        if (message !== "") {
+            $('#errormessage').html("* <b>Please fill below values</b><br><br>" + message);
+            return false;
+        }
+
+        $('#errormessage').empty();
+        return true;
+    }
+
+    function GetPRs(projectType) {
+
+        $("#ItemDropdownPRTable")
+            .empty()                                      // remove old options
+            .append('<option value="">-- Select Item --</option>') // default option
+            .prop("disabled", true);                      // disable until items load
+
+        $("#MOCDropdownPRTable")
+            .empty()                                      // remove old options
+            .append('<option value="">-- Select MOC --</option>') // default option
+            .prop("disabled", true);                      // disable until items load
+
+
+        var projectname = '';
+
+        if (projectType == 'old') {
+            projectname = $("#OldProjects").val();
+        }
+        else {
+            projectname = $("#ProjectRefDropdown").val();
+        }
+         $.ajax({
+             type: "GET",
+             url: '@Url.Action("GetPRs","PurchaseRequisition")',
+             data: { project: projectname },
+             success: function (data) {
+                 $("#PRTable tbody").html('');
+                 if (data == null || data.length == 0) {
+                     alert("No PR Records");
+                 }
+                 else {
+                     var uniqueItems = [];
+                     var uniqueMOC = [];
+
+                     for (var i = 0; i < data.length; i++) {
+                         PRAddToTable(data[i].PRNo, data[i].ItemDropdown, data[i].Quantity, data[i].ItemSize, data[i].Unit, data[i].Specs, data[i].PRDate, data[i].DateRequired, data[i].Remark, data[i].IsAllItemReceived, data[i].AssignedToPO);
+
+                         if ($.inArray(data[i].ItemDropdown, uniqueItems) === -1) {
+                             uniqueItems.push(data[i].ItemDropdown);
+                         }
+
+                         if ($.inArray(data[i].Specs, uniqueMOC) === -1) {
+                             uniqueMOC.push(data[i].Specs);
+                         }
+
+                     }
+                     uniqueItems.sort();
+                     uniqueMOC.sort();
+
+                     // Populate the item dropdown in header
+                     $.each(uniqueItems, function (i, item) {
+                         $("#ItemDropdownPRTable").append('<option value="' + item + '">' + item + '</option>');
+                     });
+                     $("#ItemDropdownPRTable").prop("disabled", false);
+
+                     // Populate the MOC dropdown in header
+                     $.each(uniqueMOC, function (i, item) {
+                         $("#MOCDropdownPRTable").append('<option value="' + item + '">' + item + '</option>');
+                     });
+                     $("#MOCDropdownPRTable").prop("disabled", false);
+                 }
+             }
+         });
+    }
+
+    @*function ExportPRsForProject() {
+        var url = '@Url.Action("WritePRsForProjectItemToExcel", "Report")';
+        var projectname = $("#ProjectRefDropdown").val();
+
+        window.location.href = url + '?ProjectName=' + projectname;
+    }*@
+
+    function ExportPRsForProject() {
+        var url = '@Url.Action("WritePRsForProjectItemToExcel", "Report")';
+        var projectname = $("#ProjectRefDropdown").val();
+
+        // Replace '&' with '||' in the project name
+        var modifiedProjectName = projectname.replace(/&/g, '||');
+
+        window.location.href = url + '?ProjectName=' + encodeURIComponent(modifiedProjectName);
+    }
+
+    function RemovePR() {
+        var code = $('#POAdminCode').val();
+        if (code == '') {
+            alert("Please enter Admin Code"); return false;
+        }
+        var prNumber = $('#PRNo').val();
+
+        if (prNumber == '') {
+            alert("Please enter PR No to Delete"); return false;
+        }
+
+        var res = confirm("Are you sure to delete the PR.");
+        if (res == false) {
+            return 0;
+        }
+
+         $.ajax({
+             type: "GET",
+             url: '@Url.Action("RemovePR","PurchaseRequisition")',
+             data: { prNumber: $('#PRNo').val(), poAdminCode: $('#POAdminCode').val() },
+             success: function (data) {
+                 if (data.includes('Error') == true) {
+                     alert(data);
+                 }
+                 else {
+                     alert('PR Record Successfully Deleted');
+                     ClearScreen();
+                 }
+             }
+         });
+
+    }
+
+    function ClearScreen() {
+        $("#PRDate").val('');
+        $("#PRNo").val('');
+        $("#ProjectRefDropdown").val('');
+        $("#ItemDropdown").val('');
+        $("#ItemSize").val('');
+        $("#Specs").val('');
+        $("#Quantity").val('');
+        $("#DateRequired").val('');
+        $("#Remark").val('');
+		$("#Drawing").val('');
+        $("#Unit").val('');
+        $("#UserCode").val('');
+        $("#NewItem").val('');
+    }
+    function SaveQuickPOData() {
+
+        if ($('#PRNo').val() == '') {
+            alert("Quick PO will be saved for a valid PR Number. Select a PR Number.");
+            return false;
+        }
+        if ($('#Rate').val() == '') {
+            alert("Please Enter Rate for PO");
+            return false;
+        }
+        $("#PRNumberHidden").val($('#PRNo').val());
+        //Serialize the form data.
+        var valdata = $("#POForm").serialize();
+            //to get alert popup
+        $.ajax({
+            url: '@Url.Action("QuickPOSave","PurchaseRequisition")',
+            type: "POST",
+            dataType: 'json',
+            contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+            data: valdata,
+            success: function (data) {
+                if (data.Result == 'Error' || data.Result == 'Record Not Found' || data.Result.includes('Error') == true) {
+                    alert(data.Result);
+                    }
+                else if (data != null) {
+                     ShowSaveSuccess(data.Result);
+                    }
+                    else {
+                        alert(data);
+                    }
+                },
+                error: function (ex) {
+                    console.log(ex);
+                }
+            });
+    }
+
+    function ToggleQuickPOSection() {
+        //if ($('#ExpandQuickPOLink').css('display') == 'none' || $(element).css("visibility") == "hidden") {
+        if ($('#QuickPOSection').is(":visible")) {
+            $('#QuickPOSection').hide();
+        }
+        else
+        {
+            $('#QuickPOSection').show();
+        }
+    }
+
+    function ToggleItemReceivedSection() {
+        if ($('#ItemReceivedSection').is(":visible")) {
+            $('#ItemReceivedSection').hide();
+        }
+        else {
+            $('#ItemReceivedSection').show();
+        }
+    }
+    function ItemReceivedAddToTable(additional) {
+        var rowCount = $("#ItemReceivedTable tbody tr").length;
+        Id = rowCount + 1;
+        var newRow = $("<tr>" +
+            "<td><input type='text' style='width: 12em' id='" + "ItemReceivedChallanNo_" + Id + "'/>" + "</td>" +
+            "<td><input type='text' class='RecDate' style='width: 7em' size='8' id='" + "ItemReceivedDate_" + Id + "'/>" + "</td>" +
+            "<td><select size='2' style='width: 7em' size='8' id='" + "ItemReceivedOK_" + Id + "'>" + "<option value='Ok' selected>Ok</option><option value='Not Ok' >Not Ok</option></select></td>" +
+            "<td><textarea rows=2 cols=20 id='" + "ItemReceivedComment_" + Id + "'/>" + "</textarea>" +
+            "<td>" + (Id === 1 ? "<select class='vendorclass' style='width: 18em' id='" + "Vendor_" + Id + "'></select>" : "") + "</td>" +
+            "<td><input type='button' class='delete-button' value='Delete' style='width: 7em' size='8' id='" + "delete_" + Id + "' onclick='DeleteItem(" + Id + ")'/></td>" +
+            "</tr>");
+
+        // Append the new row to the table body
+        $("#ItemReceivedTable tbody").append(newRow);
+
+        // Populate the dropdown with project names
+        var vendorDropdown = newRow.find(".vendorclass");
+
+        // Create a new option element for "--Select--"
+        var selectOption = $("<option>", {
+            value: "",
+            text: "--Select--"
+        });
+
+        // Append the option to the select element
+        vendorDropdown.append(selectOption);
+
+        for (var i = 0; i < VendorList.length; i++) {
+            //projectDropdown.append($("<option>").text(ProjectNames[i]));
+            var vendorName = VendorList[i];
+            vendorDropdown.append($("<option>", {
+                value: vendorName,  // Set the value equal to the text
+                text: vendorName    // Set the text to the same value
+            }));
+        }
+        $('#delete_1').hide();
+        $('.RecDate').datepicker({
+            dateFormat: "dd-mm-yy",
+        });
+    }
+
+    function FillItemsArray() {
+        var items = new Array();
+        var ct = 1;
+        $("#ItemReceivedTable tbody tr").each(function () {
+            var row = $(this);
+            var item = {};
+            item.ItemReceivedChallanNo = row.find('#ItemReceivedChallanNo_' + ct).val();
+            item.ItemReceivedDate = row.find("#ItemReceivedDate_" + ct).val();
+            item.ItemReceivedOK = row.find("#ItemReceivedOK_" + ct).val();
+            item.ItemReceivedComment = row.find("#ItemReceivedComment_" + ct).val();
+            item.Vendor = $("#Vendor_" + 1).val();
+            item.PRNumber = $('#PRNo').val();
+            items.push(item);
+            ct = ct + 1;
+        });
+
+        // Check for duplicates
+        if (hasDuplicateChallanNo(items)) {
+            alert("Error: Duplicate values found in Challan No.");
+            return false;
+        }
+
+        return items;
+    }
+
+
+    function hasDuplicateChallanNo(items) {
+        var seenChallanNos = {};
+
+        for (var i = 0; i < items.length; i++) {
+            var challanNo = items[i].ItemReceivedChallanNo;
+
+            if (seenChallanNos[challanNo]) {
+                return true; // Duplicate found
+            }
+
+            seenChallanNos[challanNo] = true;
+        }
+
+        return false; // No duplicates found
+    }
+
+    function SaveItemReceivedData() {
+
+
+
+        $('#ItemReceivedErrorMessage').html("");
+
+        if ($('#PRNo').val() == 'undefined' || $('#PRNo').val() == '') {
+            $('#ItemReceivedErrorMessage').html("* <b>Please select PR No for Item Received</b>");
+            return false;
+        }
+
+        var rowCount = $("#ItemReceivedTable tbody tr").length;
+        if (rowCount == 0) {
+            $('#ItemReceivedErrorMessage').html("* <b>Please select PR No and click on Search Icon</b>");
+            return false;
+        }
+
+        if (ValidateItemReceivedRows() == false) {
+            $('#ItemReceivedErrorMessage').html("* <b>Please fill all values in all rows in Item Received section</b>");
+            return false;
+        }
+
+        if ($('input[name="IsAllItemReceived"]:checked').length === 0) {
+            $('#ItemReceivedErrorMessage').html("* <b>Please select Yes/No if all Item's Received</b>");
+            return false;
+        }
+
+        var itemReceivedList = FillItemsArray();
+        debugger;
+        console.log(itemReceivedList);
+        var isAllItemReceived = $('input[name="IsAllItemReceived"]:checked').val();
+
+       if (itemReceivedList.length > 0) {
+           console.log(itemReceivedList);
+           itemReceivedList = JSON.stringify({ 'itemReceivedList': itemReceivedList, IsAllItemReceived: isAllItemReceived });
+
+            $.ajax({
+                contentType: 'application/json; charset=utf-8',
+                dataType: 'json',
+                type: 'POST',
+                url: '@Url.Action("ItemReceivedSave", "PurchaseRequisition")',
+                data: itemReceivedList,
+                success: function () {
+                    $('#errormessage').html("");
+                    $("#message").text('Record Saved Successfully');
+                    alert('Record Saved Successfully');
+                    if (isAllItemReceived === 'yes') {
+                        $('input[name="IsAllItemReceived"][value="yes"]').prop('checked', true);
+                        $('input[name="IsAllItemReceived"][value="no"]').prop('disabled', true);
+                        $('#btnAddItem').prop('disabled', true);
+                    }
+                    setTimeout(function() { $("#message").hide(); }, 5000);
+                },
+                failure: function (response) {
+                    alert("Error");
+                }
+            });
+        }
+    }
+
+    function DeleteItem(id) {
+        // Ask for confirmation before deleting
+        var confirmation = window.confirm("Are you sure you want to delete this challan?");
+
+        if (confirmation) {
+            // Remove the row with the corresponding ID
+            $("#ItemReceivedChallanNo_" + id).closest("tr").remove();
+        }
+    }
+
+    function ValidateItemReceivedRows() {
+        // Get all the rows in the table's tbody
+        var rows = $("#ItemReceivedTable tbody tr");
+
+        // Initialize a flag to track if all rows are valid
+        var allRowsValid = true;
+
+        // Loop through each row and validate it
+        rows.each(function (index, row) {
+            if (!validateItemReceivedTableRow(row)) {
+                allRowsValid = false;
+                // You can add your own validation logic here or display an error message.
+
+            }
+        });
+
+        return allRowsValid;
+    }
+    function validateItemReceivedTableRow(row) {
+        var isValid = true;
+
+        // Loop through each input and textarea in the row
+        $(row).find('input[type="text"], input[type="number"], select').each(function () {
+            if ($(this).val() === '') {
+                isValid = false;
+                return false; // Stop the loop if any field is empty.
+            }
+            if ($(this).is('select')) {
+                if ($(this).val() === '--select--') {
+                    isValid = false;
+                    return false; // Stop the loop if the value is "--select--".
+                }
+            }
+        });
+        return isValid;
+    }
+
+</script>
+
+
+<div class="container">
+	<form class="form-horizontal" role="form" name="PRForm" id="PRForm">
+		<h2>Purchase Requisition Details</h2>
+
+		<div class="row">
+			<div class="form-group col-md-6">
+				<label for="PR" class="col-sm-3 control-label required">User Code</label>
+				<div class="col-sm-9">
+					<select name="UserCode" id="UserCode">
+						<option value="">--Select--</option>
+						<option value="KSK">KSK</option>
+						<option value="JB">JB</option>
+						<option value="AS">AS</option>
+						<option value="MA">MA</option>
+						<option value="CV">CV</option>
+						<option value="IS">IS</option>
+						<option value="OFMS">OFMS</option>
+						<option value="OMMS">OMMS</option>
+					</select>
+				</div>
+			</div>
+			<div class="form-group col-md-6">
+
+				<label for="Admin Code" class="col-sm-3 control-label ">Admin Code</label> &nbsp;
+				<input type="password" name="POAdminCode" id="POAdminCode" size="4" /> &nbsp;&nbsp;
+				<input type="button" name="RemovePRButton" id="RemovePRButton" value="Delete PR" onclick="RemovePR();" />
+
+			</div>
+		</div>
+		<div class="row">
+			<div class="form-group col-md-6">
+				<label for="PR" class="col-sm-3 control-label">Purchase Requisition</label>
+				<div class="col-sm-5">
+					<input type="text" id="PRNo" name="PRNo" placeholder="Purchase Requisition" class="form-control">
+				</div>
+				<div class="col-sm-1">
+					<span>
+						<a href="#" onclick="PrintPR();" title="Print PR" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
+							<i class="glyphicon glyphicon-print"></i>
+						</a>
+					</span>
+					<span>
+						<a href="#" onclick="$('#PRNo').prop('disabled', false);LoadData();" title="Search" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
+							<i class="glyphicon glyphicon-search"></i>
+						</a>
+					</span>
+					@*<img src="~/Images/UpIcon.png" style="display: block; height: 32px; width: 32px;" />*@
+				</div>
+			</div>
+			<div class="form-group col-md-6">
+				<div>
+					<input type="button" id="btnAdd" name="btnAdd" value="Add New PR" onclick="AddData();" />&nbsp;&nbsp;
+					<input type="button" id="btnSearchPR" name="btnSearchPR" value="Search PR" onclick="LoadData();" />&nbsp;&nbsp;
+					<b>PO No : <span id="PONumber" style="background-color: #39FF14;"></span></b>
+				</div>
+			</div>
+		</div>
+		<div class="row">
+			<div class="form-group col-md-6">
+				<label for="PR" class="col-sm-3 control-label required">P R Date</label>
+				<div class="col-sm-6">
+					<input type="text" id="PRDate" name="PRDate" autocomplete="off" readonly="readonly" class="form-control" placeholder="PR Date" />
+				</div>
+			</div>
+			<div class="form-group col-md-6">
+				<label for="Item" class="control-label col-sm-3 required">Item</label>
+				<div class="col-sm-6">
+					<select class="form-control" id="ItemDropdown" name="ItemDropdown"></select>
+				</div>
+			</div>
+		</div>
+		<div class="row">
+			<div class="form-group col-md-6">
+				<label for="ProjectRef" class="col-sm-3 control-label required">Project Name</label>
+				<div class="col-sm-5">
+					<select class="form-control" id="ProjectRefDropdown" name="ProjectRefDropdown"></select>
+				</div>
+				<div class="col-sm-1">
+					<span>
+						<a href="#" onclick="GetPRs('new');" title="Display PRs for Project" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
+							<i class="glyphicon glyphicon-th-list"></i>
+						</a>
+						<a href="#" onclick="ExportPRsForProject();" title="Export PRs for Project to Excel" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
+							<i class="glyphicon glyphicon-save"></i>
+						</a>
+					</span>
+					@*<img src="~/Images/UpIcon.png" style="display: block; height: 32px; width: 32px;" />*@
+				</div>
+			</div>
+			<div class="form-group col-md-6" id="hiddenItemdiv">
+				<label for="Item" class="control-label col-sm-3">New Item</label>
+				<div class="col-sm-6">
+					<input type="text" id="NewItem" placeholder="New Item" class="form-control" name="NewItem">
+				</div>
+			</div>
+		</div>
+		<div class="row">
+			<div class="form-group col-md-6">
+				<label for="email" class="col-sm-3 control-label required">Size</label>
+				<div class="col-sm-6">
+					<input  type="text" id="ItemSize" placeholder="Size" class="form-control" name="ItemSize">
+				</div>
+			</div>
+			<div class="form-group col-md-6">
+				<label for="Specs" class="col-sm-3 control-label required">Spec/MOC</label>
+				<div class="col-sm-6">
+					<input  type="text" id="Specs" name="Specs" placeholder="Specs/MOC" class="form-control">
+				</div>
+			</div>
+		</div>
+		<div class="row">
+			<div class="form-group col-md-6">
+				<label for="password" class="col-sm-3 control-label required">Quantity Ordered</label>
+				<div class="col-sm-6">
+					<input type="number" min="0" value="0" step=".01" id="Quantity" name="Quantity"  placeholder="Quantity Ordered" class="form-control">
+				</div>
+			</div>
+			<div class="form-group col-md-6">
+				<label for="Quantity" class="col-sm-3 control-label required">Date Required</label>
+				<div class="col-sm-9">
+					<input type="text" autocomplete="off" readonly="readonly" id="DateRequired" name="DateRequired"  class="form-control" placeholder="Date Required" />
+				</div>
+			</div>
+		</div>
+		<div class="row">
+			<div class="form-group col-md-6">
+				<label for="password" class="col-sm-3 control-label required">Unit of Measurement</label>
+				<div class="col-sm-6">
+					<select id="Unit" name="Unit"  class="form-control">
+						<option value="">--Select--</option>
+						<option value="Kgs">Kgs</option>
+						<option value="Nos">Nos</option>
+						<option value="Dozen">Dozen</option>
+						<option value="Metres">Metres</option>
+						<option value="Feet">Feet</option>
+						<option value="Litres">Litres</option>
+						<option value="Sets">Sets</option>
+					</select>
+				</div>
+			</div>
+			<div class="form-group col-md-6">
+				<label for="ProjectRef" class="col-sm-3 control-label">Old Projects</label>
+				<div class="col-sm-5">
+					<select class="form-control" id="OldProjects" name="OldProjects"></select>
+				</div>
+				<div class="col-sm-1">
+					<span>
+						<a href="#" onclick="GetPRs('old');" title="Display Old PRs for Project" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
+							<i class="glyphicon glyphicon-th-list"></i>
+						</a>
+					</span>
+					@*<img src="~/Images/UpIcon.png" style="display: block; height: 32px; width: 32px;" />*@
+				</div>
+			</div>
+		</div>
+
+		<div class="row">
+			<div class="form-group col-md-6">
+				<label for="remark" class="col-sm-3 control-label">Remark</label>
+				<div class="col-sm-6">
+					<input type="text" name="Remark" id="Remark" placeholder="Remark" class="form-control">
+				</div>
+			</div>
+			<div class="form-group col-md-6 pull-left">
+				<label for="remark" class="col-sm-3 control-label">Drawing</label>
+				<div class="col-sm-6">
+					<input type="text" name="Drawing" id="Drawing" placeholder="Drawing" class="form-control">
+				</div>
+			</div>
+		</div>
+		<div class="row">
+			<div class="form-group col-md-6">
+                &nbsp;
+			</div>
+            <div class="form-group col-md-6 pull-left">
+                <input type="submit" id="btnSave" name="btnSave" value="Save PR" onclick="return SaveData();" />
+                &nbsp;&nbsp;
+                <div id="message" name="message" class="success"></div>
+
+            </div>
+		</div>
+		<div id="errormessage">
+		</div>
+	</form>
+	<hr />
+	<p>
+		<b>Item Received Section</b>
+		&nbsp;&nbsp;&nbsp;&nbsp;
+		All Items have been received ? &nbsp;:
+		<input type="radio" name="IsAllItemReceived" id="IsAllItemReceived" value="yes" checked /> Yes &nbsp;
+		<input type="radio" name="IsAllItemReceived" id="IsAllItemReceived" value="no" /> No
+
+	</p>
+	<form class="form-horizontal" id="ItemReceivedForm" name="ItemReceivedForm">
+		@*<div class="row">
+				<div class="form-group col-md-6">
+					<a id="ExpandItemReceivedLink" name="ExpandItemReceivedLink" href="#" onclick="ToggleItemReceivedSection();">Expand/Collapse Item Received Section</a>
+				</div>
+				<div class="form-group col-md-6">
+
+				</div>
+			</div>*@
+		@*<div id="ItemReceivedSection" name="ItemReceivedSection">
+				<div class="row">
+					<div class="form-group col-md-6">
+						<label class="col-sm-3 control-label required" style="color:dodgerblue">Item Received Date</label>
+						<div class="col-sm-6">
+							<input type="text" autocomplete="off" readonly="readonly" id="ItemReceivedDate" name="ItemReceivedDate" class="form-control" placeholder="Item Received Date">
+						</div>
+					</div>
+					<div class="form-group col-md-6">
+						<label for="Quantity" class="col-sm-3 control-label " style="color:dodgerblue">Item Received Condition</label>
+						<div class="col-sm-9">
+							<select id="ItemReceivedOK" name="ItemReceivedOK" class="form-control">
+								<option value="">--Select--</option>
+								<option value="Ok">Ok</option>
+								<option value="NotOK">Not Ok</option>
+							</select>
+						</div>
+					</div>
+				</div>
+				<div class="row">
+					<div class="form-group col-md-6">
+						<label for="remark" class="col-sm-3 control-label" style="color:dodgerblue">Item Received Comments</label>
+						<div class="col-sm-6">
+							<input type="text" name="ItemReceivedComment" id="ItemReceivedComment" placeholder="Item Received Comment" class="form-control">
+						</div>
+					</div>
+					<div class="form-group col-md-6">
+						<label for="email" class="col-sm-3 control-label required" style="color: dodgerblue">Vendor Name</label>
+						<div class="col-sm-6">
+							<select class="form-control" id="Vendor" name="Vendor"></select>
+						</div>
+					</div>
+				</div>
+				<div class="row">
+					<div class="form-group col-md-6">
+						<label for="remark" class="col-sm-3 control-label required" style="color:dodgerblue">Challan Number</label>
+						<div class="col-sm-6">
+							<input type="text" name="ItemReceivedChallanNo" id="ItemReceivedChallanNo" placeholder="Challan Number" class="form-control">
+						</div>
+					</div>
+					<div class="form-group col-md-6">
+						&nbsp;
+					</div>
+				</div>
+				<div class="row">
+					<div class="form-group col-md-12 text-center">
+						<input type="button" id="btnReceivedSave" name="btnReceivedSave" value="Save Item Received" onclick="SaveItemReceivedData();" />
+						<input type="hidden" id="PRNumberHiddenItemReceived" name="PRNumberHiddenItemReceived" />
+					</div>
+
+				</div>
+			</div>*@
+
+		<div class="row">
+			<div class="form-group col-md-12">
+				<table id="ItemReceivedTable" name="ItemReceivedTable" class="table table-bordered table-condensed table-striped">
+					<thead>
+						<tr style="background-color:lightblue">
+							<th>Challan No</th>
+							<th>Received Date</th>
+							<th>Condition</th>
+							<th>Comments</th>
+							<th>Vendor</th>
+							<th><input type="Button" id="btnAddItem" name="btnAddItem" onclick="ItemReceivedAddToTable()" value="Add Challan" /></th>
+						</tr>
+					</thead>
+					<tbody>
+					</tbody>
+				</table>
+			</div>
+		</div>
+		<div class="row">
+			<div class="form-group col-md-12 text-center">
+				<input type="button" id="btnReceivedSave" name="btnReceivedSave" value="Save Item Received" onclick="SaveItemReceivedData();" />
+			</div>
+
+		</div>
+		<div id="ItemReceivedErrorMessage">
+		</div>
+	</form>
+	<hr />
+	<form class="form-horizontal" role="form" id="POForm" name="POForm">
+		<div class="row">
+			<div class="form-group col-md-6">
+				<label for="remark" class="col-sm-3 control-label">Quick PO for this PR Only</label>
+				<a id="ExpandQuickPOLink" name="ExpandQuickPOLink" href="#" onclick="ToggleQuickPOSection();">Expand/Collapse PO Section</a>
+			</div>
+			<div class="form-group col-md-6 pull-left">
+
+			</div>
+		</div>
+		<div id="QuickPOSection" name="QuickPOSection">
+			<div class="row">
+				<div class="form-group col-md-6">
+					<label for="remark" class="col-sm-3 control-label required"><i>Rate</i></label>
+					<div class="col-sm-6">
+						<input type="number" name="Rate" id="Rate" placeholder="Rate" class="form-control">
+					</div>
+				</div>
+				<div class="form-group col-md-6 pull-left">
+					<label for="PO Qty" class="col-sm-3 control-label"><i>PO Qty</i></label>
+					<div class="col-sm-6">
+						<input type="number" name="POQty" id="POQty" placeholder="PO Qty" class="form-control">
+					</div>
+				</div>
+			</div>
+			<div class="row">
+				<div class="form-group col-md-6">
+					<label for="email" class="col-sm-3 control-label "><i>Vendor Name</i></label>
+					<div class="col-sm-6">
+						<select class="form-control" id="VendorForPO" name="VendorForPO"></select>
+					</div>
+				</div>
+				<div class="form-group col-md-6 pull-left">
+					<label for="PO Remarks" class="col-sm-3 control-label"><i>PO Remarks</i></label>
+					<div class="col-sm-6">
+						<input type="text" name="PORemarks" id="PORemarks" placeholder="PO Remarks" class="form-control">
+					</div>
+				</div>
+			</div>
+			<div class="row">
+				<div class="form-group col-md-12">
+					<label for="email" class="col-sm-3 control-label">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</label>
+					<input type="submit" id="btnPOSave" name="btnPOSave" value="Save PO" onclick="SaveQuickPOData();" />
+					<input type="hidden" id="PRNumberHidden" name="PRNumberHidden" />
+					<div id="messagePO" name="messagePO" class="success"></div>
+				</div>
+			</div>
+		</div>
+
+	</form>
+
+
+
+	<div class="row">
+		<div class="form-group col-md-12">
+			<table id="PRTable" name="PRTable" class="table table-bordered table-condensed table-striped">
+				<thead>
+					<tr style="background-color:lightblue">
+						<th>PR #</th>
+                        <th>                            
+                            <select id="ItemDropdownPRTable" class="form-control form-control-sm" disabled>
+                                <option value="">-- Select Item --</option>
+                            </select>
+                        </th>
+						<th style='width:15%;'>Size</th>
+                        <th>
+                            <select id="MOCDropdownPRTable" class="form-control form-control-sm" disabled>
+                                <option value="">-- Select MOC --</option>
+                            </select>
+                        </th>
+						<th>Qty</th>
+						<th>Unit</th>
+						<th style='width:10%;'>PR Date</th>
+						<th style='width:10%;'>Reqd Date</th>
+						<th>Remarks</th>
+						<th>All Item Recd</th>
+					</tr>
+				</thead>
+				<tbody>
+				</tbody>
+			</table>
+
+		</div>
+	</div>
+
+</div> <!-- ./container -->

@@ -1,0 +1,204 @@
+﻿using OrientalApplication.DAL;
+using OrientalApplication.Models;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Web;
+using System.Web.Mvc;
+using Xceed.Document.NET;
+using Xceed.Words.NET;
+
+namespace OrientalApplication.Controllers
+{
+    public class POVM
+    {
+        public string PONumber { get; set; }
+    }
+    //[Authorize]
+    public class PurchaseOrderController : Controller
+    {
+
+        public ActionResult PrintPO(POVM poModel) {
+            if (poModel == null || poModel.PONumber == null)
+            {
+                return null;
+            }
+
+            
+            PurchaseOrder po = PurchaseOrderDAL.GetPurchaseOrder(poModel.PONumber);
+
+            if (po == null)
+            {
+                Response.Write("Invalid Purchase Order Number.");
+                Response.End();
+            }
+            else
+            {
+                var poItemsVM = GetPOItemsVM(poModel.PONumber);
+
+                var companies = CompanyDAL.GetCompanies();
+                POCompany company = new POCompany();
+                foreach (var c in companies)
+                {
+                    string f = c.CompanyName + "==" + c.ContactPerson;
+                    if (f == po.Company)
+                    {
+                        company = c; break;
+                    }
+                }
+
+                var PODate = po.PODate.Split('-');
+                var PODateString = PODate[2] + "-" + PODate[1] + "-" + PODate[0];
+
+                var DeliveryRequiredBy = po.DeliveryRequiredBy.Split('-');
+                var DeliveryRequiredByString = DeliveryRequiredBy[2] + "-" + DeliveryRequiredBy[1] + "-" + DeliveryRequiredBy[0];
+
+                po.PODate = PODateString;
+                po.DeliveryRequiredBy = DeliveryRequiredByString;
+
+                var vendors = VendorDAL.GetVendors();
+                var vendor = vendors.Where(x => x.VendorName.Contains(po.Vendor)).FirstOrDefault();
+
+                POPrintViewModel model = new POPrintViewModel();
+                model.PO = po;
+
+                model.POItemsVM = poItemsVM;
+                model.POCompany = company;
+                model.POVendor = vendor;
+                return View(model);
+            }
+            return null;
+        }
+
+        private List<POItemsViewModel> GetPOItemsVM(string poNumber)
+        {
+            var poItems = PurchaseOrderItemDAL.GetPurchaseOrderItems(poNumber);
+            var prList = PurchaseRequisitionDAL.GetPRs();
+
+            var finalPOItems = new List<POItemsViewModel>();
+            int i = 1;
+            foreach (var po in poItems)
+            {
+                var f = new POItemsViewModel();
+                var pr = prList.Where(x => x.PRNo == po.PRNumber).First();
+                var p = poItems.Where(x => x.PRNumber == po.PRNumber).First();
+                f.SrNo = i.ToString();
+                i++;
+                f.Particulars = pr.ItemDropdown;
+                f.Size = pr.ItemSize;
+                f.MOC = pr.Specs;
+                f.Rate = p.Rate;
+                f.Qty = string.IsNullOrEmpty(p.POQuantity) ? pr.Quantity : p.POQuantity;
+                f.Discount = po.Discount;
+                f.Unit = pr.Unit;
+                finalPOItems.Add(f);
+            }
+            return finalPOItems;
+        }
+
+        // GET: PurchaseOrder
+        public ActionResult Index()
+        {
+            return View();
+        }
+        [HttpGet]
+        public ActionResult POGet(string PONumber)
+        {
+            
+            PurchaseOrder po = PurchaseOrderDAL.GetPurchaseOrder(PONumber);
+            return Json(po, JsonRequestBehavior.AllowGet);
+        }
+        [HttpPost]
+        public ActionResult POSave(PurchaseOrder po)
+        {
+            
+            var p = PurchaseOrderDAL.GetPurchaseOrder(po.PONumber);
+
+            //Calculate PO Total
+            if (string.IsNullOrEmpty(po.POAmount))
+            {
+                return Json("Calculate PO Amount and then Save", JsonRequestBehavior.AllowGet);
+            }
+
+            if (p != null && string.IsNullOrEmpty(p.PONumber) == false)
+            {
+                PurchaseOrderDAL.SaveData(po, false);
+                //return Json("PO Number Already Exists", JsonRequestBehavior.AllowGet);
+            }
+            else
+            {
+                PurchaseOrderDAL.SaveData(po,true);
+            }
+            return Json("Success", JsonRequestBehavior.AllowGet);
+        }
+        [HttpPost]
+        public ActionResult POItemSave(List<PurchaseOrderItem> purchaseOrderItems)
+        {
+            foreach (var item in purchaseOrderItems)
+            {
+                PurchaseOrderItemDAL.SaveData(item);
+            }
+
+            return Json("Success", JsonRequestBehavior.AllowGet);
+        }
+        public ActionResult GetVendorNames()
+        {            
+            var names = VendorDAL.GetVendorNames();
+            return Json(names, JsonRequestBehavior.AllowGet);
+        }
+
+        public ActionResult GetCompanyNames()
+        {            
+            var companies = CompanyDAL.GetCompanies();            
+            List<string> companyList = new List<string>();
+            companyList = companies.Select(x => x.CompanyName + "==" + x.ContactPerson).ToList();
+            return Json(companyList, JsonRequestBehavior.AllowGet);
+        }
+
+        public ActionResult GetPRs(string project)
+        {
+            var prList = PurchaseRequisitionDAL.GetPRsForPO(project);
+            return Json(prList, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult GetPaymentTerms()
+        {
+            var paymentTerms = Utility.GetPaymentTerms();                                   
+            return Json(paymentTerms, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult GetProjectNames(SearchViewModel model)
+        {
+            var projectList = Utility.GetProjectNames();
+
+            List<string> ar = model.projects != null ? model.projects.ToList() : null;
+            if (ar != null && ar.Count() > 0)
+            {
+                projectList.RemoveAll(item => ar.Contains(item));
+            }
+
+
+            return new JsonResult { Data = projectList, JsonRequestBehavior = JsonRequestBehavior.AllowGet };
+        }
+        [HttpGet]
+        public ActionResult VendorMaster()
+        {
+            return View();
+        }
+        [HttpPost]
+        public JsonResult SaveVendor(Vendor vendor)
+        {
+            var vendors = VendorDAL.GetVendors();
+            if (vendors != null && vendors.Count() > 0)
+            {
+                if (vendors.Exists(x=>x.VendorName == vendor.VendorName))
+                {
+                    return Json("Vendor Name Already Exists", JsonRequestBehavior.AllowGet);
+                }
+            }
+            VendorDAL.SaveData(vendor);
+            return Json("Success", JsonRequestBehavior.AllowGet);
+        }
+    }
+}

@@ -1,0 +1,161 @@
+﻿
+@{
+    ViewBag.Title = "VendorMaster";
+}
+
+<h2>Vendor Master</h2>
+
+<script src="~/Scripts/jquery-3.4.1.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.css">
+<link href="~/Content/Purchase.css" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.1/jquery.validate.min.js"></script>
+<script src="~/Scripts/form-validation.js"></script>
+
+<script type="text/javascript">
+
+    $(document).ready(function () {
+
+        $('#btnSave').prop('disabled', true);
+    });
+
+    function ShowSaveSuccess() {
+        $("#message").text('Record Saved Successfully');
+        alert('Record Saved Successfully');
+        setTimeout(function() { $("#message").hide(); }, 5000);
+    }
+    function AddData() {
+        $("#VendorName").val('');
+        $("#Address").val('');
+        $("#ContactPerson").val('');
+        $("#ContactNumber").val('');
+        $("#Email").val('');
+
+         $('#btnSave').prop('disabled', false);
+    }
+    function SaveVendorData() {
+        if (ValidateForm() == false) {
+            return false;
+        }
+
+        //Serialize the form datas.
+        var valdata = $("#VendorForm").serialize();
+
+        $.ajax({
+            url: '@Url.Action("SaveVendor","PurchaseOrder")',
+            type: "POST",
+            dataType: 'json',
+            contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+            data: valdata,
+            success: function (data) {
+                alert(data);
+                if (data != 'Success') {
+                    alert(data);
+                }
+                else {
+                    ShowSaveSuccess();
+                        $('#btnSave').prop('disabled', true);
+                }
+            },
+            error: function (ex) {
+                alert(ex);
+                console.log(ex);
+            }
+        });
+
+    function ValidateForm() {
+
+        var valid = true;
+	    var message = "";
+
+        if ($('#VendorName').val() == "")
+        {
+            message += 'Vendor Name' + '<br>';
+        }
+        if ($('#ContactPerson').val() == "")
+        {
+            message += 'Contact Person' + '<br>';
+        }
+        if ($('#Address').val() == "")
+        {
+            message += 'Address' + '<br>';
+        }
+        if ($('#ContactNumber').val()=="")
+        {
+            message += 'Contact Number' + '<br>';
+        }
+        if ($('#Email').val() == "")
+        {
+            message += 'Email' + '<br>';
+        }
+
+        if (message != "") {
+            $('#errormessage').html("* <b>Please fill below values</b> <br><br>" + message + "<br>");
+            return false;
+        }
+        else {
+            $('#errormessage').html();
+        }
+        return true;
+    }
+</script>
+
+<div class="container">
+    <form class="form-horizontal" role="form" name="VendorForm" id="VendorForm">
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="PR" class="col-sm-3 control-label required">Vendor Name</label>
+                <div class="col-sm-6">
+                    <input type="text" id="VendorName" name="VendorName" required="required" placeholder="Vendor Name" class="form-control">
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                <input type="button" id="btnAdd" name="btnAdd" value="Add Vendor" onclick="AddData();" />
+                &nbsp;&nbsp;
+
+
+
+
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="PR" class="col-sm-3 control-label required">Contact Person</label>
+                <div class="col-sm-6">
+                    <input type="text" id="ContactPerson" required="required" name="ContactPerson" placeholder="Contact Person" class="form-control">
+                </div>
+            </div>
+            <div class="form-group col-md-6">
+                <label for="Item" class="control-label col-sm-3 required">Address</label>
+                <div class="col-sm-6">
+                    <textarea type="text" required="required" rows="3" class="form-control" id="Address" name="Address"></textarea>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6">
+                <label for="ProjectRef" class="col-sm-3 control-label required">Contact Number</label>
+                <div class="col-sm-6">
+                    <input type="tel" class="form-control" id="ContactNumber" placeholder="Contact Number" name="ContactNumber" required="required" />
+                </div>
+            </div>
+            <div class="form-group col-md-6" id="hiddenItemdiv">
+                <label for="Item" class="control-label col-sm-3 required">Email</label>
+                <div class="col-sm-6">
+                    <input type="email" id="Email" required="required" placeholder="Email" class="form-control" name="Email">
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group col-md-6 ">
+                <div class="col-sm-6 text-right">
+                    <input type="submit" id="btnSave" name="btnSave" value="Save Vendor" onclick="SaveVendorData();" />
+                </div>
+                &nbsp;&nbsp;
+                <div id="message" name="message" class="success"></div>
+
+            </div>
+        </div>
+        <div id="errormessage" class="error">
+        </div>
+    </form> <!-- /form -->
+</div> <!-- ./container -->

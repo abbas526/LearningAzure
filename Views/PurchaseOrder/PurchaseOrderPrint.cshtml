@@ -1,0 +1,14 @@
+﻿
+@{Html.BeginForm("PurchaseOrderPrint", "PurchaseOrder", FormMethod.Post);
+    {
+        <div class="form-group">
+            <label for="Name" class="label-default">Name:</label>
+            <input name="Print" id="Print" class="text-info" />
+        </div>
+        <div>
+            <input type="submit" value="Create Document" style="width:150px;height:27px" />
+        </div>
+    }
+    Html.EndForm();
+}
+
