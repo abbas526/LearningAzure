@@ -1,6 +1,6 @@
 ﻿using OrientalApplication.Core;
-using OrientalApplication.DAL;
 using OrientalApplication.Models;
+using OrientalApplication.Repositories;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -21,6 +21,30 @@ namespace OrientalApplication.Controllers
     [CustomAuthorize(Roles = "Admin,Engineering,")]
     public class PurchaseOrderController : Controller
     {
+        private readonly IVendorRepository _vendorRepository;
+        private readonly IPurchaseOrderRepository _purchaseOrderRepository;
+        private readonly ICompanyRepository _companyRepository;
+        private readonly IPurchaseOrderItemRepository _purchaseOrderItemRepository;
+        private readonly IPurchaseRequisitionRepository _purchaseRequisitionRepository;
+
+        public PurchaseOrderController()
+            : this(new VendorRepository(), new PurchaseOrderRepository(), new CompanyRepository(), new PurchaseOrderItemRepository(), new PurchaseRequisitionRepository())
+        {
+        }
+
+        public PurchaseOrderController(
+            IVendorRepository vendorRepository,
+            IPurchaseOrderRepository purchaseOrderRepository,
+            ICompanyRepository companyRepository,
+            IPurchaseOrderItemRepository purchaseOrderItemRepository,
+            IPurchaseRequisitionRepository purchaseRequisitionRepository)
+        {
+            _vendorRepository = vendorRepository;
+            _purchaseOrderRepository = purchaseOrderRepository;
+            _companyRepository = companyRepository;
+            _purchaseOrderItemRepository = purchaseOrderItemRepository;
+            _purchaseRequisitionRepository = purchaseRequisitionRepository;
+        }
 
         public ActionResult PrintPO(POVM poModel) {
             if (poModel == null || poModel.PONumber == null)
@@ -29,7 +53,7 @@ namespace OrientalApplication.Controllers
             }
 
             
-            PurchaseOrder po = PurchaseOrderDAL.GetPurchaseOrder(poModel.PONumber);
+            PurchaseOrder po = _purchaseOrderRepository.GetPurchaseOrder(poModel.PONumber);
 
             if (po == null)
             {
@@ -40,7 +64,7 @@ namespace OrientalApplication.Controllers
             {
                 var poItemsVM = GetPOItemsVM(poModel.PONumber);
 
-                var companies = CompanyDAL.GetCompanies();
+                var companies = _companyRepository.GetCompanies();
                 POCompany company = new POCompany();
                 foreach (var c in companies)
                 {
@@ -79,7 +103,7 @@ namespace OrientalApplication.Controllers
                 Vendor vendor = null;
                 if (!string.IsNullOrEmpty(po.Vendor))
                 {
-                    var vendors = VendorDAL.GetVendors("PO");
+                    var vendors = _vendorRepository.GetVendors("PO");
                     vendor = vendors.FirstOrDefault(x => x.VendorName.Contains(po.Vendor));
                 }
                 POPrintViewModel model = new POPrintViewModel();
@@ -106,8 +130,8 @@ namespace OrientalApplication.Controllers
 
         private List<POItemsViewModel> GetPOItemsVM(string poNumber)
         {
-            var poItems = PurchaseOrderItemDAL.GetPurchaseOrderItems(poNumber);
-            var prList = PurchaseRequisitionDAL.GetPRsForPO(poNumber);
+            var poItems = _purchaseOrderItemRepository.GetPurchaseOrderItems(poNumber);
+            var prList = _purchaseRequisitionRepository.GetPRsForPO(poNumber);
 
             var finalPOItems = new List<POItemsViewModel>();
             int i = 1;
@@ -140,7 +164,7 @@ namespace OrientalApplication.Controllers
         public ActionResult POGet(string PONumber)
         {
             
-            PurchaseOrder po = PurchaseOrderDAL.GetPurchaseOrder(PONumber);
+            PurchaseOrder po = _purchaseOrderRepository.GetPurchaseOrder(PONumber);
 
             if (po == null)
             {
@@ -153,7 +177,7 @@ namespace OrientalApplication.Controllers
         {
             try
             {
-                var p = PurchaseOrderDAL.GetPurchaseOrder(po.PONumber);
+                var p = _purchaseOrderRepository.GetPurchaseOrder(po.PONumber);
 
                 po.DisplayDiscount = (!string.IsNullOrEmpty(po.DisplayDiscount)) ? "true" : "false";
                 po.DisplayTotal = (!string.IsNullOrEmpty(po.DisplayTotal)) ? "true" : "false";
@@ -166,11 +190,11 @@ namespace OrientalApplication.Controllers
 
                 if (p != null && string.IsNullOrEmpty(p.PONumber) == false)
                 {
-                    PurchaseOrderDAL.SaveData(po, false);
+                    _purchaseOrderRepository.SaveData(po, false);
                 }
                 else
                 {
-                    PurchaseOrderDAL.SaveData(po, true);
+                    _purchaseOrderRepository.SaveData(po, true);
                 }
                 return Json("Success", JsonRequestBehavior.AllowGet);
             }
@@ -184,19 +208,19 @@ namespace OrientalApplication.Controllers
         {
             foreach (var item in purchaseOrderItems)
             {                
-                PurchaseOrderItemDAL.SaveData(item);
+                _purchaseOrderItemRepository.SaveData(item);
             }            
             return Json("Success", JsonRequestBehavior.AllowGet);
         }
         public ActionResult GetVendorNames()
         {            
-            var names = VendorDAL.GetVendorNames();
+            var names = _vendorRepository.GetVendorNames();
             return Json(names, JsonRequestBehavior.AllowGet);
         }
 
         public ActionResult GetCompanyNames()
         {            
-            var companies = CompanyDAL.GetCompanies();
+            var companies = _companyRepository.GetCompanies();
             List<string> companyList = null;
             companyList = companies.Select(x => x.CompanyName + "==" + x.ContactPerson).ToList();
             return Json(companyList, JsonRequestBehavior.AllowGet);
@@ -204,7 +228,7 @@ namespace OrientalApplication.Controllers
 
         public ActionResult GetPRs(string project)
         {
-            var prList = PurchaseRequisitionDAL.GetPRsForProject(project);
+            var prList = _purchaseRequisitionRepository.GetPRsForProject(project);
             return Json(prList, JsonRequestBehavior.AllowGet);
         }
 
@@ -235,12 +259,12 @@ namespace OrientalApplication.Controllers
                 return Json("Error: InValid PO Admin Code, cannot remove PO", JsonRequestBehavior.AllowGet);
             }
 
-            PurchaseOrder po = PurchaseOrderDAL.GetPurchaseOrder(poNumber);
+            PurchaseOrder po = _purchaseOrderRepository.GetPurchaseOrder(poNumber);
             if(po == null || string.IsNullOrEmpty(po.PONumber))
             {
                 return Json("Error: PO does not exist", JsonRequestBehavior.AllowGet);
             }
-            var result = PurchaseOrderDAL.RemovePO(poNumber);
+            var result = _purchaseOrderRepository.RemovePO(poNumber);
             if (result == true)
             {
                 return Json("Success", JsonRequestBehavior.AllowGet);
@@ -257,7 +281,7 @@ namespace OrientalApplication.Controllers
                 return Json("Error: InValid PO Approver Code, cannot approve PO", JsonRequestBehavior.AllowGet);
             }
 
-            PurchaseOrder po = PurchaseOrderDAL.GetPurchaseOrder(poNumber);
+            PurchaseOrder po = _purchaseOrderRepository.GetPurchaseOrder(poNumber);
             if (po == null || string.IsNullOrEmpty(po.PONumber))
             {
                 return Json("Error: PO does not exist", JsonRequestBehavior.AllowGet);
@@ -267,7 +291,7 @@ namespace OrientalApplication.Controllers
             {
                 return Json("Error: PO has not been sent for Approval", JsonRequestBehavior.AllowGet);
             }
-            var result = PurchaseOrderDAL.ApprovePO(poNumber);
+            var result = _purchaseOrderRepository.ApprovePO(poNumber);
             if (result == true)
             {
                 return Json("Success", JsonRequestBehavior.AllowGet);
@@ -281,7 +305,7 @@ namespace OrientalApplication.Controllers
         public JsonResult SubmitForApproval(string poNumber)
         {
 
-            PurchaseOrder po = PurchaseOrderDAL.GetPurchaseOrder(poNumber);
+            PurchaseOrder po = _purchaseOrderRepository.GetPurchaseOrder(poNumber);
             
             if (po == null || string.IsNullOrEmpty(po.PONumber))
             {
@@ -295,7 +319,7 @@ namespace OrientalApplication.Controllers
             {
                  return Json("Error : Already Requested Approval", JsonRequestBehavior.AllowGet);
             }
-            PurchaseOrderDAL.SubmitForApproval(poNumber);
+            _purchaseOrderRepository.SubmitForApproval(poNumber);
             return Json("Success", JsonRequestBehavior.AllowGet);
         }
     }

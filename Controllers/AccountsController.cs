@@ -1,5 +1,5 @@
-﻿using OrientalApplication.DAL;
-using OrientalApplication.Models;
+﻿using OrientalApplication.Models;
+using OrientalApplication.Repositories;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
@@ -13,6 +13,17 @@ namespace OrientalApplication.Controllers
 {
     public class AccountsController : Controller
     {
+        private readonly IUserRepository _userRepository;
+
+        public AccountsController() : this(new UserRepository())
+        {
+        }
+
+        public AccountsController(IUserRepository userRepository)
+        {
+            _userRepository = userRepository;
+        }
+
         // GET: Accounts
         public ActionResult Login()
         {
@@ -25,7 +36,7 @@ namespace OrientalApplication.Controllers
             //string username = ConfigurationManager.AppSettings.Get("UserName");
             //string password = ConfigurationManager.AppSettings.Get("Password");
 
-            if (UserDAL.ValidateUser(model.UserName,model.UserPassword))
+            if (_userRepository.ValidateUser(model.UserName,model.UserPassword))
             {
                 IsValidUser = true;
             }

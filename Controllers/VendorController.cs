@@ -1,6 +1,6 @@
 ﻿using OrientalApplication.Core;
-using OrientalApplication.DAL;
 using OrientalApplication.Models;
+using OrientalApplication.Repositories;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,6 +12,17 @@ namespace OrientalApplication.Controllers
     [CustomAuthorize(Roles = "Admin,Engineering")]
     public class VendorController : Controller
     {
+        private readonly IVendorRepository _vendorRepository;
+
+        public VendorController() : this(new VendorRepository())
+        {
+        }
+
+        public VendorController(IVendorRepository vendorRepository)
+        {
+            _vendorRepository = vendorRepository;
+        }
+
         // GET: Vendor
         public ActionResult Index()
         {
@@ -20,7 +31,7 @@ namespace OrientalApplication.Controllers
 
         public ActionResult GetVendor(string vendorName)
         {
-            var vendor = VendorDAL.GetVendor(vendorName);
+            var vendor = _vendorRepository.GetVendor(vendorName);
             return Json(vendor, JsonRequestBehavior.AllowGet);
         }
 
@@ -29,20 +40,20 @@ namespace OrientalApplication.Controllers
         {
             try
             {
-                vendor.Result = VendorDAL.SaveData(vendor);
+                vendor.Result = _vendorRepository.SaveData(vendor);
                 return Json(vendor, JsonRequestBehavior.AllowGet);
             }
             catch(Exception ex)
             {
                 vendor.Result = "Error in Save: " + ex.Message;
-                return Json(vendor, JsonRequestBehavior.AllowGet);                
+                return Json(vendor, JsonRequestBehavior.AllowGet);
             }
-            
+
         }
 
         public JsonResult GetSearchValue(string search)
         {
-            var vendorList = VendorDAL.GetAllVendorNames();
+            var vendorList = _vendorRepository.GetAllVendorNames();
             vendorList = vendorList.ConvertAll(d => d.ToUpper());
 
             List<string> allsearch = vendorList.Where(x => x.StartsWith(search.ToUpper())).Select(x => x).ToList();
