@@ -1,7 +1,7 @@
 ﻿using ClosedXML.Excel;
 using OrientalApplication.Core;
-using OrientalApplication.DAL;
 using OrientalApplication.Models;
+using OrientalApplication.Repositories;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -16,6 +16,25 @@ namespace OrientalApplication.Controllers
     [CustomAuthorize(Roles = "Admin,Engineering")]
     public class ProjectMasterController : Controller
     {
+        private readonly IProjectMasterRepository _projectMasterRepository;
+        private readonly IItemRepository _itemRepository;
+        private readonly IPurchaseRequisitionRepository _purchaseRequisitionRepository;
+
+        public ProjectMasterController()
+            : this(new ProjectMasterRepository(), new ItemRepository(), new PurchaseRequisitionRepository())
+        {
+        }
+
+        public ProjectMasterController(
+            IProjectMasterRepository projectMasterRepository,
+            IItemRepository itemRepository,
+            IPurchaseRequisitionRepository purchaseRequisitionRepository)
+        {
+            _projectMasterRepository = projectMasterRepository;
+            _itemRepository = itemRepository;
+            _purchaseRequisitionRepository = purchaseRequisitionRepository;
+        }
+
         string PRDate = string.Empty;
         string DateRequired = string.Empty;
         // GET: ProjectMaster
@@ -26,7 +45,7 @@ namespace OrientalApplication.Controllers
 
         public ActionResult GetProject(string projectName)
         {
-            var project = ProjectMasterDAL.GetProject(projectName);
+            var project = _projectMasterRepository.GetProject(projectName);
             return Json(project, JsonRequestBehavior.AllowGet);
         }
 
@@ -34,7 +53,7 @@ namespace OrientalApplication.Controllers
         {
             try
             {
-                projectMaster.Result = ProjectMasterDAL.SaveData(projectMaster);
+                projectMaster.Result = _projectMasterRepository.SaveData(projectMaster);
                 return Json(projectMaster, JsonRequestBehavior.AllowGet);
             }
             catch (Exception ex)
@@ -45,7 +64,7 @@ namespace OrientalApplication.Controllers
         }
         public JsonResult GetSearchValue(string search)
         {
-            var projects = ProjectMasterDAL.GetProjectNames();
+            var projects = _projectMasterRepository.GetProjectNames();
             projects = projects.ConvertAll(d => d.ToUpper());
 
             List<string> allsearch = projects.Where(x => x.StartsWith(search.ToUpper())).Select(x => x).ToList();
@@ -58,7 +77,7 @@ namespace OrientalApplication.Controllers
         {
             try
             {
-                projectMaster.Result = ProjectMasterDAL.CloneProject(projectMaster);
+                projectMaster.Result = _projectMasterRepository.CloneProject(projectMaster);
                 return Json(projectMaster, JsonRequestBehavior.AllowGet);
             }
             catch (Exception ex)
@@ -83,7 +102,7 @@ namespace OrientalApplication.Controllers
                     HttpPostedFileBase file = files[0];
                     string fname;
                     fname = file.FileName;
-                    var proj = ProjectMasterDAL.GetProject(projectName);
+                    var proj = _projectMasterRepository.GetProject(projectName);
                     if(proj == null)
                     {
                         return Json("Project not found for adding PRs. Please select a valid project name.");
@@ -122,7 +141,7 @@ namespace OrientalApplication.Controllers
 
         public JsonResult GetAllProjectNames()
         {
-            var projectNamesList = ProjectMasterDAL.GetProjectNames();
+            var projectNamesList = _projectMasterRepository.GetProjectNames();
 
             return new JsonResult { Data = projectNamesList, JsonRequestBehavior = JsonRequestBehavior.AllowGet };
         }
@@ -148,7 +167,7 @@ namespace OrientalApplication.Controllers
 
                             //// In case a new Item is coming from Excel file
                             var item = pr.ItemDropdown?.Trim().ToUpper();
-                            var itemNames = ItemDAL.GetItemNames();
+                            var itemNames = _itemRepository.GetItemNames();
                             if (itemNames.Exists(y => y.ToUpper() == item) == false)
                             {
                                 pr.NewItem = pr.ItemDropdown.Trim();
@@ -156,7 +175,7 @@ namespace OrientalApplication.Controllers
                             /////////
                             DateRequired = pr.DateRequired;
                             PRDate = pr.PRDate;
-                            PurchaseRequisitionDAL.SavePR(pr);
+                            _purchaseRequisitionRepository.SavePR(pr);
                             count++;
                         }
                         x++;

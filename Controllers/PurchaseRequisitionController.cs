@@ -1,6 +1,6 @@
 ﻿using OrientalApplication.Core;
-using OrientalApplication.DAL;
 using OrientalApplication.Models;
+using OrientalApplication.Repositories;
 using System;
 using System.Collections.Generic;
 using System.Data.SQLite;
@@ -18,6 +18,27 @@ namespace OrientalApplication.Controllers
     [CustomAuthorize(Roles = "Admin,Engineering,")]
     public class PurchaseRequisitionController : Controller
     {
+        private readonly IPurchaseRequisitionRepository _purchaseRequisitionRepository;
+        private readonly IPurchaseOrderItemRepository _purchaseOrderItemRepository;
+        private readonly IItemRepository _itemRepository;
+        private readonly IPurchaseOrderRepository _purchaseOrderRepository;
+
+        public PurchaseRequisitionController()
+            : this(new PurchaseRequisitionRepository(), new PurchaseOrderItemRepository(), new ItemRepository(), new PurchaseOrderRepository())
+        {
+        }
+
+        public PurchaseRequisitionController(
+            IPurchaseRequisitionRepository purchaseRequisitionRepository,
+            IPurchaseOrderItemRepository purchaseOrderItemRepository,
+            IItemRepository itemRepository,
+            IPurchaseOrderRepository purchaseOrderRepository)
+        {
+            _purchaseRequisitionRepository = purchaseRequisitionRepository;
+            _purchaseOrderItemRepository = purchaseOrderItemRepository;
+            _itemRepository = itemRepository;
+            _purchaseOrderRepository = purchaseOrderRepository;
+        }
 
         // GET: PurchaseRequisition
 
@@ -29,7 +50,7 @@ namespace OrientalApplication.Controllers
             }
 
 
-            PurchaseRequisition pr = PurchaseRequisitionDAL.GetPurchaseRequisition(prModel.PRNumber);
+            PurchaseRequisition pr = _purchaseRequisitionRepository.GetPurchaseRequisition(prModel.PRNumber);
 
             if (pr == null)
             {
@@ -59,9 +80,9 @@ namespace OrientalApplication.Controllers
         [HttpGet]
         public ActionResult PRGet(string PRNo)
         {
-            PurchaseRequisition po = PurchaseRequisitionDAL.GetPurchaseRequisition(PRNo);
+            PurchaseRequisition po = _purchaseRequisitionRepository.GetPurchaseRequisition(PRNo);
             
-            List<String> PONumberList = PurchaseRequisitionDAL.GetAllPOsForPR(PRNo);
+            List<String> PONumberList = _purchaseRequisitionRepository.GetAllPOsForPR(PRNo);
             string PONumbers = string.Join(",", PONumberList);
             po.AssociatedPONumbers = PONumbers;
 
@@ -69,7 +90,7 @@ namespace OrientalApplication.Controllers
         }
         public ActionResult GetPRs(string project)
         {
-            var prList = PurchaseRequisitionDAL.GetPRsWithPOStatus(project);
+            var prList = _purchaseRequisitionRepository.GetPRsWithPOStatus(project);
             return Json(prList, JsonRequestBehavior.AllowGet);
         }
         [HttpPost]
@@ -84,7 +105,7 @@ namespace OrientalApplication.Controllers
                 }
                 if (!string.IsNullOrEmpty(pr.PRNo))
                 {
-                    var prFoundInPO = PurchaseOrderItemDAL.GetPurchaseOrderItem(pr.PRNo);
+                    var prFoundInPO = _purchaseOrderItemRepository.GetPurchaseOrderItem(pr.PRNo);
                     if (prFoundInPO != null && prFoundInPO.PONumber != null)
                     {
                         string msg = "Error: " + "The PR cannot be saved because it is already used in PO No: " + prFoundInPO.PONumber;
@@ -93,7 +114,7 @@ namespace OrientalApplication.Controllers
                     }
                     pr.IsNew = "false";
                 }
-                var result = PurchaseRequisitionDAL.SavePR(pr);
+                var result = _purchaseRequisitionRepository.SavePR(pr);
 
                 pr.Result = result;
                 if (pr.ItemDropdown == null || pr.ItemDropdown == "")
@@ -116,7 +137,7 @@ namespace OrientalApplication.Controllers
             // if the cached object is null, then only fetch data from Database
             if (purchaseRequisitionList == null)
             {
-                purchaseRequisitionList = PurchaseRequisitionDAL.GetAllPurchaseRequisitionNumbers();
+                purchaseRequisitionList = _purchaseRequisitionRepository.GetAllPurchaseRequisitionNumbers();
                 //after fetching from database,insert the collection into Cache object.
                 HttpContext.Cache.Insert("PRNumberList", purchaseRequisitionList);
                 
@@ -149,19 +170,19 @@ namespace OrientalApplication.Controllers
         public JsonResult GetItemNames()
         {
 
-            var itemNamesList = ItemDAL.GetItemNames();
+            var itemNamesList = _itemRepository.GetItemNames();
 
             return new JsonResult { Data = itemNamesList, JsonRequestBehavior = JsonRequestBehavior.AllowGet };
         }
 
         public bool CheckDuplicateItemName(string itemName)
         {
-            var itemNamesList = ItemDAL.GetItemNames();
+            var itemNamesList = _itemRepository.GetItemNames();
             return itemNamesList.Exists(x => x == itemName);
         }
 
         public JsonResult GeneratePRNo() {
-            var prNo = PurchaseRequisitionDAL.GetLastPRNo();
+            var prNo = _purchaseRequisitionRepository.GetLastPRNo();
             int prNoNumber = 100; 
             if (!string.IsNullOrEmpty(prNo) && prNo.Contains("-"))
             {
@@ -177,14 +198,14 @@ namespace OrientalApplication.Controllers
             {
                 return Json("Error: InValid Admin Code, cannot remove PR", JsonRequestBehavior.AllowGet);
             }
-            PurchaseRequisition pr = PurchaseRequisitionDAL.GetPurchaseRequisitionForDelete(prNumber);
+            PurchaseRequisition pr = _purchaseRequisitionRepository.GetPurchaseRequisitionForDelete(prNumber);
             
             if (pr == null || string.IsNullOrEmpty(pr.PRNo))
             {
                 return Json("Error: PR does not exist Or PR is already deleted Or PR is associated to a PO. Hence cannot Delete PR.", JsonRequestBehavior.AllowGet);
             }
 
-            var result = PurchaseRequisitionDAL.RemovePR(prNumber);
+            var result = _purchaseRequisitionRepository.RemovePR(prNumber);
             if (result == true)
             {
                 return Json("Success", JsonRequestBehavior.AllowGet);
@@ -198,7 +219,7 @@ namespace OrientalApplication.Controllers
         public ActionResult QuickPOSave(QuickPO quickPO)
         {
             //Check PR Number os valid
-            PurchaseRequisition pr = PurchaseRequisitionDAL.GetPurchaseRequisition(quickPO.PRNumberHidden);
+            PurchaseRequisition pr = _purchaseRequisitionRepository.GetPurchaseRequisition(quickPO.PRNumberHidden);
             if (pr == null)
             {
                 pr = new PurchaseRequisition();
@@ -207,7 +228,7 @@ namespace OrientalApplication.Controllers
             }
             else
             {
-                var prFoundInPO = PurchaseOrderItemDAL.GetPurchaseOrderItem(pr.PRNo);
+                var prFoundInPO = _purchaseOrderItemRepository.GetPurchaseOrderItem(pr.PRNo);
                 if (prFoundInPO != null && prFoundInPO.PONumber != null)
                 {
                     string msg = "Error: " + "The PO cannot be saved because the PR is already used in PO No: " + prFoundInPO.PONumber;
@@ -248,7 +269,7 @@ namespace OrientalApplication.Controllers
                 po.BillNoAndDate = "Not Applicable";
                 po.PaymentDate = "";
 
-                PurchaseOrderDAL.SaveData(po, true);
+                _purchaseOrderRepository.SaveData(po, true);
 
                 POItemSave(quickPO,po.PONumber);
                 pr.Result = "PO Saved Successfully, New PO Number : " + po.PONumber;
@@ -271,21 +292,21 @@ namespace OrientalApplication.Controllers
             prItem.Rate = quickPO.Rate;
             prItem.PONumber = PONumber;
 
-            PurchaseOrderItemDAL.SaveData(prItem);
+            _purchaseOrderItemRepository.SaveData(prItem);
             
         }
 
         public ActionResult ItemReceivedSave(List<ItemReceived> itemReceivedList, string IsAllItemReceived)
         {
 
-            PurchaseRequisitionDAL.DeleteItemReceived(itemReceivedList[0].PRNumber);
+            _purchaseRequisitionRepository.DeleteItemReceived(itemReceivedList[0].PRNumber);
 
             foreach (var item in itemReceivedList)
             {
-                PurchaseRequisitionDAL.InsertItemReceived(item);
+                _purchaseRequisitionRepository.InsertItemReceived(item);
             }
 
-            PurchaseRequisitionDAL.UpdateAllItemReceivedFlag(IsAllItemReceived, itemReceivedList[0].PRNumber);
+            _purchaseRequisitionRepository.UpdateAllItemReceivedFlag(IsAllItemReceived, itemReceivedList[0].PRNumber);
 
             return Json("Success", JsonRequestBehavior.AllowGet);            
         }

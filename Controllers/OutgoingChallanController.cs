@@ -1,6 +1,6 @@
 ﻿using OrientalApplication.Core;
-using OrientalApplication.DAL;
 using OrientalApplication.Models;
+using OrientalApplication.Repositories;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,6 +13,28 @@ namespace OrientalApplication.Controllers
     [CustomAuthorize(Roles = "Admin,Engineering")]
     public class OutgoingChallanController : Controller
     {
+        private readonly IVendorRepository _vendorRepository;
+        private readonly IOutgoingChallanRepository _outgoingChallanRepository;
+        private readonly IOutgoingChallanItemRepository _outgoingChallanItemRepository;
+        private readonly ICompanyRepository _companyRepository;
+
+        public OutgoingChallanController()
+            : this(new VendorRepository(), new OutgoingChallanRepository(), new OutgoingChallanItemRepository(), new CompanyRepository())
+        {
+        }
+
+        public OutgoingChallanController(
+            IVendorRepository vendorRepository,
+            IOutgoingChallanRepository outgoingChallanRepository,
+            IOutgoingChallanItemRepository outgoingChallanItemRepository,
+            ICompanyRepository companyRepository)
+        {
+            _vendorRepository = vendorRepository;
+            _outgoingChallanRepository = outgoingChallanRepository;
+            _outgoingChallanItemRepository = outgoingChallanItemRepository;
+            _companyRepository = companyRepository;
+        }
+
         // GET: OutgoingChallan
         public ActionResult Index()
         {
@@ -23,16 +45,16 @@ namespace OrientalApplication.Controllers
         {
             try
             {
-                var p = OutgoingChallanDAL.GetOutgoingChallan(po.ChallanNumber);
+                var p = _outgoingChallanRepository.GetOutgoingChallan(po.ChallanNumber);
 
                 if (p != null && !string.IsNullOrEmpty(p.ChallanNumber))
                 {
-                    OutgoingChallanDAL.SaveChallan(po, false);
+                    _outgoingChallanRepository.SaveChallan(po, false);
                     //return Json("PO Number Already Exists", JsonRequestBehavior.AllowGet);
                 }
                 else
                 {
-                    OutgoingChallanDAL.SaveChallan(po, true);
+                    _outgoingChallanRepository.SaveChallan(po, true);
                 }
                 return Json("Success", JsonRequestBehavior.AllowGet);
             }
@@ -46,26 +68,26 @@ namespace OrientalApplication.Controllers
         {
             foreach (var item in challanItems)
             {
-                OutgoingChallanItemDAL.SaveData(item);
+                _outgoingChallanItemRepository.SaveData(item);
             }
             return Json("Success", JsonRequestBehavior.AllowGet);
         }
 
         public ActionResult GetVendorNames()
         {
-            var names = VendorDAL.GetVendorNames("Challan");
+            var names = _vendorRepository.GetVendorNames("Challan");
             return Json(names, JsonRequestBehavior.AllowGet);
         }
 
         public ActionResult GetVendorGST(string vendorName)
         {
-            var GST = VendorDAL.GetVendorGST(vendorName);
+            var GST = _vendorRepository.GetVendorGST(vendorName);
             return Json(GST, JsonRequestBehavior.AllowGet);
         }
 
         public ActionResult GetCompanyNames()
         {
-            var companies = CompanyDAL.GetCompanies();
+            var companies = _companyRepository.GetCompanies();
             //companies.RemoveAt(0);
             List<string> companyList = new List<string>();
             companyList = companies.Select(x => x.CompanyName + "==" + x.ContactPerson).ToList();
@@ -74,14 +96,14 @@ namespace OrientalApplication.Controllers
 
         public ActionResult GetChallan(string challanNumber)
         {
-            var data = OutgoingChallanDAL.GetOutgoingChallan(challanNumber);
+            var data = _outgoingChallanRepository.GetOutgoingChallan(challanNumber);
             if (data == null)
             {
                 data = new OutgoingChallan();
                 data.Result = "Error : Challan Number Not Found";
                 return Json(data, JsonRequestBehavior.AllowGet);
             }
-            data.VendorGST = VendorDAL.GetVendorGST(data.Vendor);
+            data.VendorGST = _vendorRepository.GetVendorGST(data.Vendor);
             return Json(data, JsonRequestBehavior.AllowGet);
         }
         public ActionResult PrintChallan(string challanNumber)
@@ -92,7 +114,7 @@ namespace OrientalApplication.Controllers
             }
 
 
-            OutgoingChallan challan = OutgoingChallanDAL.GetOutgoingChallan(challanNumber);
+            OutgoingChallan challan = _outgoingChallanRepository.GetOutgoingChallan(challanNumber);
 
             if (challan == null)
             {
@@ -102,7 +124,7 @@ namespace OrientalApplication.Controllers
             else
             {              
 
-                var companies = CompanyDAL.GetCompanies();
+                var companies = _companyRepository.GetCompanies();
                 POCompany company = new POCompany();
                 foreach (var c in companies)
                 {
@@ -120,7 +142,7 @@ namespace OrientalApplication.Controllers
                 Vendor vendor = null;
                 if (!string.IsNullOrEmpty(challan.Vendor))
                 {
-                    var vendors = VendorDAL.GetVendors("Challan");
+                    var vendors = _vendorRepository.GetVendors("Challan");
                     vendor = vendors.FirstOrDefault(x => x.VendorName.Contains(challan.Vendor));
                 }
                 ChallanPrintViewModel model = new ChallanPrintViewModel();
@@ -148,7 +170,7 @@ namespace OrientalApplication.Controllers
             {
                 Abbr = "F";
             }
-            var challanNo = OutgoingChallanDAL.GetLastChallanNo(Abbr);
+            var challanNo = _outgoingChallanRepository.GetLastChallanNo(Abbr);
             int challanNoNumber = 0; //1001;
             if (challanNo.Contains("-"))
             {

@@ -8,14 +8,42 @@ using System.Web;
 using System.Web.Mvc;
 using ClosedXML.Excel;
 using OrientalApplication.Core;
-using OrientalApplication.DAL;
 using OrientalApplication.Models;
+using OrientalApplication.Repositories;
 
 namespace OrientalApplication.Controllers
 {
     [CustomAuthorize(Roles = "Admin")]
     public class ReportController : Controller
     {
+        private readonly IVendorRepository _vendorRepository;
+        private readonly IPurchaseOrderRepository _purchaseOrderRepository;
+        private readonly IPurchaseOrderItemRepository _purchaseOrderItemRepository;
+        private readonly IPurchaseRequisitionRepository _purchaseRequisitionRepository;
+        private readonly IOutgoingChallanRepository _outgoingChallanRepository;
+        private readonly IPaymentRepository _paymentRepository;
+
+        public ReportController()
+            : this(new VendorRepository(), new PurchaseOrderRepository(), new PurchaseOrderItemRepository(), new PurchaseRequisitionRepository(), new OutgoingChallanRepository(), new PaymentRepository())
+        {
+        }
+
+        public ReportController(
+            IVendorRepository vendorRepository,
+            IPurchaseOrderRepository purchaseOrderRepository,
+            IPurchaseOrderItemRepository purchaseOrderItemRepository,
+            IPurchaseRequisitionRepository purchaseRequisitionRepository,
+            IOutgoingChallanRepository outgoingChallanRepository,
+            IPaymentRepository paymentRepository)
+        {
+            _vendorRepository = vendorRepository;
+            _purchaseOrderRepository = purchaseOrderRepository;
+            _purchaseOrderItemRepository = purchaseOrderItemRepository;
+            _purchaseRequisitionRepository = purchaseRequisitionRepository;
+            _outgoingChallanRepository = outgoingChallanRepository;
+            _paymentRepository = paymentRepository;
+        }
+
         // GET: Report
         public ActionResult Index()
         {
@@ -226,7 +254,7 @@ namespace OrientalApplication.Controllers
 
         private DataTable GetPOData(string poStartDate, string poEndDate)
         {
-            var poList = PurchaseOrderDAL.GetPurchaseOrder(poStartDate, poEndDate);
+            var poList = _purchaseOrderRepository.GetPurchaseOrder(poStartDate, poEndDate);
             //Creating DataTable
             ListtoDataTableConverter converter = new ListtoDataTableConverter();
 
@@ -237,7 +265,7 @@ namespace OrientalApplication.Controllers
         private DataTable GetPODataForProject(string projectName)
         {
             projectName = projectName.Replace("||", "&");
-            var poList = PurchaseOrderDAL.GetAllPurchaseOrder(projectName);
+            var poList = _purchaseOrderRepository.GetAllPurchaseOrder(projectName);
             //Creating DataTable
             ListtoDataTableConverter converter = new ListtoDataTableConverter();
 
@@ -247,7 +275,7 @@ namespace OrientalApplication.Controllers
 
         private DataTable GetPOItemData(string poStartDate, string poEndDate)
         {
-            var poItemsList = PurchaseOrderItemDAL.GetPurchaseOrderItems(poStartDate, poEndDate);
+            var poItemsList = _purchaseOrderItemRepository.GetPurchaseOrderItems(poStartDate, poEndDate);
             //Creating DataTable
             ListtoDataTableConverter converter = new ListtoDataTableConverter();
 
@@ -258,7 +286,7 @@ namespace OrientalApplication.Controllers
 
         private DataTable GetPRData(string prStartDate, string prEndDate)
         {
-            var prList = PurchaseRequisitionDAL.GetPRs(prStartDate,prEndDate);
+            var prList = _purchaseRequisitionRepository.GetPRs(prStartDate,prEndDate);
             //Creating DataTable
             ListtoDataTableConverter converter = new ListtoDataTableConverter();
 
@@ -268,7 +296,7 @@ namespace OrientalApplication.Controllers
 
         private DataTable GetPendingPR()
         {
-            var prList = PurchaseRequisitionDAL.GetPendingPRs();
+            var prList = _purchaseRequisitionRepository.GetPendingPRs();
             //Creating DataTable
             ListtoDataTableConverter converter = new ListtoDataTableConverter();
 
@@ -278,7 +306,7 @@ namespace OrientalApplication.Controllers
 
         private DataTable GetPRsForPO(string poNumber)
         {
-            var prList = PurchaseRequisitionDAL.GetPRsForPO(poNumber);
+            var prList = _purchaseRequisitionRepository.GetPRsForPO(poNumber);
             //Creating DataTable
             ListtoDataTableConverter converter = new ListtoDataTableConverter();
 
@@ -290,7 +318,7 @@ namespace OrientalApplication.Controllers
         {
             projectName = projectName.Replace("||", "&");
 
-            var prList = PurchaseRequisitionDAL.GetAllPRsForProject(projectName);
+            var prList = _purchaseRequisitionRepository.GetAllPRsForProject(projectName);
             //Creating DataTable
             ListtoDataTableConverter converter = new ListtoDataTableConverter();
 
@@ -323,7 +351,7 @@ namespace OrientalApplication.Controllers
 
         private DataTable GetVendors()
         {
-            var vendors = VendorDAL.GetAllVendors();
+            var vendors = _vendorRepository.GetAllVendors();
             //Creating DataTable
             ListtoDataTableConverter converter = new ListtoDataTableConverter();
 
@@ -335,7 +363,7 @@ namespace OrientalApplication.Controllers
         private DataTable GetChallans(string projectName)
         {
             projectName = projectName.Replace("||", "&");
-            var prList = OutgoingChallanDAL.GetAllChallans(projectName);
+            var prList = _outgoingChallanRepository.GetAllChallans(projectName);
             //Creating DataTable
             ListtoDataTableConverter converter = new ListtoDataTableConverter();
 
@@ -345,7 +373,7 @@ namespace OrientalApplication.Controllers
 
         public DataTable GetBills(string Vendor = null)
 		{
-            var bills = PaymentDAL.GetBillsForReport(Vendor);
+            var bills = _paymentRepository.GetBillsForReport(Vendor);
             ListtoDataTableConverter converter = new ListtoDataTableConverter();
 
             DataTable dt = converter.ToDataTable(bills); 
