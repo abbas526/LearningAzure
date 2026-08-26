@@ -3,6 +3,7 @@ using OrientalApplication.Models;
 using System;
 using System.Collections.Generic;
 using System.Data.SQLite;
+using System.Globalization;
 using System.Linq;
 using System.Web;
 
@@ -22,6 +23,16 @@ namespace OrientalApplication.Repositories
             _outgoingChallanItemRepository = outgoingChallanItemRepository;
         }
 
+        // ChallanDate/ReceivedDate are declared DATE in the schema, so System.Data.SQLite
+        // auto-converts them to .NET DateTime while Dapper materializes the row -- before our own
+        // try/catch parsing below ever runs. A malformed stored value then throws FormatException
+        // out of conn.Query()/QueryFirstOrDefault() itself. Casting to TEXT keeps them as plain
+        // strings so ConvertObject/SafeFormatDate do the (safe) parsing instead.
+        // See PurchaseRequisitionRepository.cs for the full write-up of this quirk.
+        private const string OutgoingChallanColumns =
+            "ChallanNumber, CAST(ChallanDate AS TEXT) AS ChallanDate, VehicleNumber, EWayBillNo, Vendor, Company, Comment, " +
+            "ValueOfMaterial, CAST(ReceivedDate AS TEXT) AS ReceivedDate, ReceivedComment";
+
         public OutgoingChallan GetOutgoingChallan(string ChallanNumber)
         {
             using (SQLiteConnection conn = new SQLiteConnection(connectionString))
@@ -29,7 +40,7 @@ namespace OrientalApplication.Repositories
                 conn.Open();
 
                 var row = conn.QueryFirstOrDefault(
-                    "select * from OutgoingChallan where ChallanNumber=@ChallanNumber",
+                    "select " + OutgoingChallanColumns + " from OutgoingChallan where ChallanNumber=@ChallanNumber",
                     new { ChallanNumber });
 
                 OutgoingChallan outgoingChallan = row != null ? ConvertObject(row) : null;
@@ -79,7 +90,7 @@ namespace OrientalApplication.Repositories
         {
             OutgoingChallan oc = new OutgoingChallan();
             oc.ChallanNumber = Convert.ToString(row.ChallanNumber);
-            oc.ChallanDate = Convert.ToDateTime(row.ChallanDate).ToString("dd-MM-yyyy");
+            oc.ChallanDate = SafeFormatDate(row.ChallanDate);
             oc.Company = Convert.ToString(row.Company);
             oc.Vendor = Convert.ToString(row.Vendor);
             oc.VehicleNumber = Convert.ToString(row.VehicleNumber);
@@ -109,22 +120,33 @@ namespace OrientalApplication.Repositories
             }
         }
 
+        // See PurchaseRequisitionRepository.NormalizeDateForStorage for why this replaces the
+        // previous separator-sniffing split/reorder logic: DateTime.TryParseExact against the
+        // known incoming formats always normalizes to ISO "yyyy-MM-dd" instead of risking a
+        // format flip.
+        private static readonly string[] KnownDateFormats = { "dd-MM-yyyy", "dd/MM/yyyy", "yyyy-MM-dd" };
+
+        private static string NormalizeDateForStorage(string rawDate)
+        {
+            if (string.IsNullOrWhiteSpace(rawDate))
+            {
+                return rawDate;
+            }
+            if (DateTime.TryParseExact(rawDate.Trim(), KnownDateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsed))
+            {
+                return parsed.ToString("yyyy-MM-dd");
+            }
+            return rawDate;
+        }
+
         public bool SaveChallan(OutgoingChallan oc, bool IsNew = true)
         {
             using (SQLiteConnection conn = new SQLiteConnection(connectionString))
             {
                 conn.Open();
 
-                if (oc.ChallanDate.Contains("-"))
-                {
-                    var PODateArray = oc.ChallanDate.Split('-');
-                    oc.ChallanDate = PODateArray[2] + "-" + PODateArray[1] + "-" + PODateArray[0];
-                }
-                if (!string.IsNullOrEmpty(oc.ReceivedDate) && oc.ReceivedDate.Contains("-"))
-                {
-                    var ReceivedDateArray = oc.ReceivedDate.Split('-');
-                    oc.ReceivedDate = ReceivedDateArray[2] + "-" + ReceivedDateArray[1] + "-" + ReceivedDateArray[0];
-                }
+                oc.ChallanDate = NormalizeDateForStorage(oc.ChallanDate);
+                oc.ReceivedDate = NormalizeDateForStorage(oc.ReceivedDate);
 
                 int res;
                 if (IsNew)
@@ -175,7 +197,7 @@ namespace OrientalApplication.Repositories
             {
                 conn.Open();
 
-                string sql = "select c.ChallanNumber,ChallanDate,VehicleNumber,EWayBillNo,Vendor,Company,ItemDescription,HSN,Quantity,Rate,Amount,ProjectName,Comment,ReceivedDate,ReceivedComment,ValueOfMaterial from OutgoingChallan c join OutgoingChallanItem i on c.challannumber = i.challannumber";
+                string sql = "select c.ChallanNumber,CAST(ChallanDate AS TEXT) AS ChallanDate,VehicleNumber,EWayBillNo,Vendor,Company,ItemDescription,HSN,Quantity,Rate,Amount,ProjectName,Comment,CAST(ReceivedDate AS TEXT) AS ReceivedDate,ReceivedComment,ValueOfMaterial from OutgoingChallan c join OutgoingChallanItem i on c.challannumber = i.challannumber";
 
                 object parameters = null;
                 if (!string.IsNullOrEmpty(ProjectName))
@@ -199,7 +221,7 @@ namespace OrientalApplication.Repositories
         {
             OutgoingChallanWithItem oc = new OutgoingChallanWithItem();
             oc.ChallanNumber = Convert.ToString(row.ChallanNumber);
-            oc.ChallanDate = Convert.ToDateTime(row.ChallanDate).ToString("dd-MM-yyyy");
+            oc.ChallanDate = SafeFormatDate(row.ChallanDate);
             oc.Company = Convert.ToString(row.Company);
             oc.Vendor = Convert.ToString(row.Vendor);
             oc.VehicleNumber = Convert.ToString(row.VehicleNumber);

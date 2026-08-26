@@ -30,6 +30,55 @@
         .nav li:hover .submenu {
             display: block; /* Show the submenu on hover */
         }
+
+        /* Top navigation bar: swap Bootstrap's default near-black .navbar-inverse for a dark,
+           professional green, keeping the link/title text white throughout (not just on hover -
+           Bootstrap's default only turns nav links white on hover/active, grey otherwise). */
+        .navbar-inverse {
+            background-color: #1e4b3a;
+            border-color: #123328;
+        }
+
+            .navbar-inverse .navbar-brand,
+            .navbar-inverse .navbar-nav > li > a {
+                color: #ffffff;
+            }
+
+                .navbar-inverse .navbar-brand:hover,
+                .navbar-inverse .navbar-brand:focus,
+                .navbar-inverse .navbar-nav > li > a:hover,
+                .navbar-inverse .navbar-nav > li > a:focus {
+                    color: #ffffff;
+                    background-color: #163a2d;
+                }
+
+            .navbar-inverse .navbar-nav > .active > a,
+            .navbar-inverse .navbar-nav > .active > a:hover,
+            .navbar-inverse .navbar-nav > .active > a:focus,
+            .navbar-inverse .navbar-nav > .open > a,
+            .navbar-inverse .navbar-nav > .open > a:hover,
+            .navbar-inverse .navbar-nav > .open > a:focus {
+                color: #ffffff;
+                background-color: #123328;
+            }
+
+            .navbar-inverse .navbar-toggle {
+                border-color: #163a2d;
+            }
+
+                .navbar-inverse .navbar-toggle:hover,
+                .navbar-inverse .navbar-toggle:focus {
+                    background-color: #163a2d;
+                }
+
+                .navbar-inverse .navbar-toggle .icon-bar {
+                    background-color: #ffffff;
+                }
+
+            .navbar-inverse .navbar-collapse,
+            .navbar-inverse .navbar-form {
+                border-color: #123328;
+            }
     </style>
 </head>
 <body>

@@ -34,7 +34,7 @@ namespace OrientalApplication.Repositories
 
                 var rows = conn.Query(
                     "select po.*,pr.unitOfMeasurement," +
-                    "pr.ProjectName,pr.ItemName,pr.Quantity,pr.Size,por.PODate,pr.Drawing from PurchaseOrderItem po " +
+                    "pr.ProjectName,pr.ItemName,pr.Quantity,pr.Size,CAST(por.PODate AS TEXT) AS PODate,pr.Drawing from PurchaseOrderItem po " +
                     "join PurchaseRequisition pr on po.PRNumber = pr.PRNo " +
                     "join PurchaseOrder por on po.PONumber = por.PONumber " +
                     "where por.IsActive='yes' and  po.PONumber=@PONumber",
@@ -85,7 +85,7 @@ namespace OrientalApplication.Repositories
                 conn.Open();
 
                 string sql = "select po.*,pr.unitOfMeasurement," +
-                                                "pr.ProjectName,pr.ItemName,pr.Quantity,pr.Size,por.PODate from PurchaseOrderItem po " +
+                                                "pr.ProjectName,pr.ItemName,pr.Quantity,pr.Size,CAST(por.PODate AS TEXT) AS PODate from PurchaseOrderItem po " +
                                                 "join PurchaseRequisition pr on po.PRNumber = pr.PRNo " +
                                                 "join PurchaseOrder por on po.PONumber = por.PONumber ";
                 object parameters = null;

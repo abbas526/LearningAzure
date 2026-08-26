@@ -3,6 +3,7 @@ using OrientalApplication.Models;
 using System;
 using System.Collections.Generic;
 using System.Data.SQLite;
+using System.Globalization;
 using System.Linq;
 using System.Web;
 
@@ -22,6 +23,19 @@ namespace OrientalApplication.Repositories
             _purchaseOrderItemRepository = purchaseOrderItemRepository;
         }
 
+        // PODate/DeliveryRequiredBy/InsertedOn/UpdatedOn/PaymentDate are declared DATE/DATETIME in
+        // the schema, so System.Data.SQLite auto-converts them to .NET DateTime while Dapper
+        // materializes the row -- before our own try/catch parsing below ever runs. A malformed
+        // stored value then throws FormatException out of conn.Query() itself. Casting to TEXT
+        // keeps them as plain strings so ConvertObject/SafeFormatDate do the (safe) parsing
+        // instead. See PurchaseRequisitionRepository.cs for the full write-up of this quirk.
+        private const string PurchaseOrderColumns =
+            "PONumber, CAST(PODate AS TEXT) AS PODate, Vendor, QuoteRef, HSN, PORemarks, " +
+            "CAST(DeliveryRequiredBy AS TEXT) AS DeliveryRequiredBy, DeliveryInstructions, DeliveryRequiredAt, " +
+            "TransportationCharges, PaymentTerms, Company, POAmount, AllProjects, BillAmount, BillNoAndDate, " +
+            "CAST(InsertedOn AS TEXT) AS InsertedOn, CAST(UpdatedOn AS TEXT) AS UpdatedOn, IsActive, ProjectRef, " +
+            "CAST(PaymentDate AS TEXT) AS PaymentDate, DisplayTotal, DisplayDiscount, IsApproved, IsApprovalRequested";
+
         public PurchaseOrder GetPurchaseOrder(string PONo)
         {
             using (SQLiteConnection conn = new SQLiteConnection(connectionString))
@@ -29,7 +43,7 @@ namespace OrientalApplication.Repositories
                 conn.Open();
 
                 var row = conn.QueryFirstOrDefault(
-                    "select * from PurchaseOrder where IsActive='yes' and PONumber=@PONumber",
+                    "select " + PurchaseOrderColumns + " from PurchaseOrder where IsActive='yes' and PONumber=@PONumber",
                     new { PONumber = PONo });
 
                 if (row != null)
@@ -53,7 +67,7 @@ namespace OrientalApplication.Repositories
                 conn.Open();
 
                 string sql = "SELECT pr.ProjectName, po.PONumber, poItem.PRNumber, poItem.Rate, poItem.Discount, poItem.POQuantity, " +
-                             "pr.Quantity, pr.ItemName, pr.UnitOfMeasurement, po.PODate, po.IsActive, po.Vendor " +
+                             "pr.Quantity, pr.ItemName, pr.UnitOfMeasurement, CAST(po.PODate AS TEXT) AS PODate, po.IsActive, po.Vendor " +
                              "FROM PurchaseOrder po " +
                              "join PurchaseOrderItem poItem on po.PONumber = poItem.PONumber " +
                              "join PurchaseRequisition pr on poItem.PRNumber = pr.PRNo " +
@@ -75,12 +89,12 @@ namespace OrientalApplication.Repositories
         {
             PurchaseOrder po = new PurchaseOrder();
             po.PONumber = Convert.ToString(row.PONumber);
-            po.PODate = Convert.ToDateTime(row.PODate).ToString("dd-MM-yyyy");
+            po.PODate = SafeFormatDate(row.PODate);
             po.Vendor = Convert.ToString(row.Vendor);
             po.QuoteRef = Convert.ToString(row.QuoteRef);
             po.HSNNo = Convert.ToString(row.HSN);
             po.PORemarks = Convert.ToString(row.PORemarks);
-            po.DeliveryRequiredBy = Convert.ToDateTime(row.DeliveryRequiredBy).ToString("dd-MM-yyyy");
+            po.DeliveryRequiredBy = SafeFormatDate(row.DeliveryRequiredBy);
             po.DeliveryInstructions = Convert.ToString(row.DeliveryInstructions);
             po.DeliveryRequiredAt = Convert.ToString(row.DeliveryRequiredAt);
             po.TransportationCharges = Convert.ToString(row.TransportationCharges);
@@ -96,10 +110,48 @@ namespace OrientalApplication.Repositories
             po.DisplayDiscount = Convert.ToString(row.DisplayDiscount);
             po.IsApproved = Convert.ToString(row.IsApproved);
             po.IsApprovalRequested = Convert.ToString(row.IsApprovalRequested);
-            // Original wrapped this in a try/catch, but a plain ToString() on a DBNull/string
-            // column can't actually throw, so there's nothing for the catch to do.
-            po.PaymentDate = Convert.ToString(row.PaymentDate);
+            // PaymentDate is declared DATE and is nullable (a PO may not be paid yet), so it goes
+            // through the same safe parsing as the other date columns rather than a bare
+            // Convert.ToString/ToDateTime.
+            po.PaymentDate = SafeFormatDate(row.PaymentDate);
             return po;
+        }
+
+        // Mirrors the try/catch date parsing the original reader-based code did inline: a
+        // null/DBNull or unparseable date is left as null rather than thrown.
+        private static string SafeFormatDate(object rawDate)
+        {
+            if (rawDate == null || rawDate is DBNull)
+            {
+                return null;
+            }
+            try
+            {
+                return Convert.ToDateTime(rawDate).ToString("dd-MM-yyyy");
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        // See PurchaseRequisitionRepository.NormalizeDateForStorage for why this replaces the
+        // previous separator-sniffing split/reorder logic: DateTime.TryParseExact against the
+        // known incoming formats always normalizes to ISO "yyyy-MM-dd" instead of risking a
+        // format flip.
+        private static readonly string[] KnownDateFormats = { "dd-MM-yyyy", "dd/MM/yyyy", "yyyy-MM-dd" };
+
+        private static string NormalizeDateForStorage(string rawDate)
+        {
+            if (string.IsNullOrWhiteSpace(rawDate))
+            {
+                return rawDate;
+            }
+            if (DateTime.TryParseExact(rawDate.Trim(), KnownDateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsed))
+            {
+                return parsed.ToString("yyyy-MM-dd");
+            }
+            return rawDate;
         }
 
         private static PurchaseOrderDetails ConvertObjectToPODetails(dynamic row)
@@ -115,7 +167,7 @@ namespace OrientalApplication.Repositories
             po.PRQty = Convert.ToString(row.Quantity);
             po.ItemName = Convert.ToString(row.ItemName);
             po.Unit = Convert.ToString(row.UnitOfMeasurement);
-            po.PODate = Convert.ToDateTime(row.PODate).ToString("dd-MM-yyyy");
+            po.PODate = SafeFormatDate(row.PODate);
             po.IsActive = Convert.ToString(row.IsActive);
             po.Vendor = Convert.ToString(row.Vendor);
             return po;
@@ -133,17 +185,17 @@ namespace OrientalApplication.Repositories
 
                 if (DateTime.TryParse(poStartDate, out startDate) && DateTime.TryParse(poEndDate, out endDate))
                 {
-                    sql = "SELECT * FROM PurchaseOrder WHERE PODate >= @StartDate AND PODate <= @EndDate";
+                    sql = "SELECT " + PurchaseOrderColumns + " FROM PurchaseOrder WHERE PODate >= @StartDate AND PODate <= @EndDate";
                     parameters = new { StartDate = startDate.ToString("yyyy-MM-dd"), EndDate = endDate.ToString("yyyy-MM-dd") };
                 }
                 else if (DateTime.TryParse(poStartDate, out startDate) && !DateTime.TryParse(poEndDate, out _))
                 {
-                    sql = "SELECT * FROM PurchaseOrder WHERE PODate >= @StartDate";
+                    sql = "SELECT " + PurchaseOrderColumns + " FROM PurchaseOrder WHERE PODate >= @StartDate";
                     parameters = new { StartDate = startDate.ToString("yyyy-MM-dd") };
                 }
                 else
                 {
-                    sql = "select * from PurchaseOrder";
+                    sql = "select " + PurchaseOrderColumns + " from PurchaseOrder";
                 }
 
                 var rows = conn.Query(sql, parameters);
@@ -165,35 +217,9 @@ namespace OrientalApplication.Repositories
             {
                 conn.Open();
 
-                if (po.PODate.Contains("/"))
-                {
-                    var PODateArray = po.PODate.Split('/');
-                    po.PODate = PODateArray[2] + "-" + PODateArray[1] + "-" + PODateArray[0];
-
-                    var DeliveryRequiredByArray = po.DeliveryRequiredBy.Split('/');
-                    po.DeliveryRequiredBy = DeliveryRequiredByArray[2] + "-" + DeliveryRequiredByArray[1] + "-" + DeliveryRequiredByArray[0];
-
-                    if (!string.IsNullOrEmpty(po.PaymentDate))
-                    {
-                        var PaymentDateArray = po.PaymentDate.Split('/');
-                        po.PaymentDate = PaymentDateArray[2] + "-" + PaymentDateArray[1] + "-" + PaymentDateArray[0];
-                    }
-                }
-
-                if (po.PODate.Contains("-"))
-                {
-                    var PODateArray = po.PODate.Split('-');
-                    po.PODate = PODateArray[2] + "-" + PODateArray[1] + "-" + PODateArray[0];
-
-                    var DeliveryRequiredByArray = po.DeliveryRequiredBy.Split('-');
-                    po.DeliveryRequiredBy = DeliveryRequiredByArray[2] + "-" + DeliveryRequiredByArray[1] + "-" + DeliveryRequiredByArray[0];
-
-                    if (!string.IsNullOrEmpty(po.PaymentDate))
-                    {
-                        var PaymentDateArray = po.PaymentDate.Split('-');
-                        po.PaymentDate = PaymentDateArray[2] + "-" + PaymentDateArray[1] + "-" + PaymentDateArray[0];
-                    }
-                }
+                po.PODate = NormalizeDateForStorage(po.PODate);
+                po.DeliveryRequiredBy = NormalizeDateForStorage(po.DeliveryRequiredBy);
+                po.PaymentDate = NormalizeDateForStorage(po.PaymentDate);
 
                 int res;
                 if (IsNew)
