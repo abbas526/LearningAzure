@@ -3,6 +3,7 @@ using OrientalApplication.Models;
 using System;
 using System.Collections.Generic;
 using System.Data.SQLite;
+using System.Globalization;
 using System.Linq;
 using System.Web;
 
@@ -22,6 +23,29 @@ namespace OrientalApplication.Repositories
             _itemRepository = itemRepository;
         }
 
+        // PRDate/DateRequired/InsertedOn/UpdatedOn/ItemReceivedDate are declared DATE/DATETIME in
+        // the schema, so System.Data.SQLite auto-converts them to .NET DateTime the moment Dapper
+        // reads the row -- before ConvertObjectToPR/SafeFormatDate ever runs. A single row with a
+        // non-ISO date string (e.g. "5-27-2021" instead of "2021-05-27") then throws
+        // FormatException out of conn.Query() itself, taking down the whole list. Casting to TEXT
+        // here keeps them as plain strings so our own safe parsing below is what actually runs.
+        private const string PRColumns =
+            "PRNo, CAST(PRDate AS TEXT) AS PRDate, ProjectName, ItemName, Size, Specs, Quantity, " +
+            "CAST(DateRequired AS TEXT) AS DateRequired, Remark, UserCode, UnitOfMeasurement, BillNo, Vendor, Rate, " +
+            "CAST(InsertedOn AS TEXT) AS InsertedOn, CAST(UpdatedOn AS TEXT) AS UpdatedOn, IsActive, " +
+            "CAST(ItemReceivedDate AS TEXT) AS ItemReceivedDate, ItemReceivedOK, ItemReceivedComment, " +
+            "ItemReceivedChallanNo, IsAllItemReceived, Drawing";
+
+        private const string PRColumnsPrefixed =
+            "pr.PRNo, CAST(pr.PRDate AS TEXT) AS PRDate, pr.ProjectName, pr.ItemName, pr.Size, pr.Specs, pr.Quantity, " +
+            "CAST(pr.DateRequired AS TEXT) AS DateRequired, pr.Remark, pr.UserCode, pr.UnitOfMeasurement, pr.BillNo, pr.Vendor, pr.Rate, " +
+            "CAST(pr.InsertedOn AS TEXT) AS InsertedOn, CAST(pr.UpdatedOn AS TEXT) AS UpdatedOn, pr.IsActive, " +
+            "CAST(pr.ItemReceivedDate AS TEXT) AS ItemReceivedDate, pr.ItemReceivedOK, pr.ItemReceivedComment, " +
+            "pr.ItemReceivedChallanNo, pr.IsAllItemReceived, pr.Drawing";
+
+        private const string PRItemReceivedColumns =
+            "PRNo, CAST(ReceivedDate AS TEXT) AS ReceivedDate, Condition, Comment, ChallanNo, Vendor";
+
         public PurchaseRequisition GetPurchaseRequisition(string PRNo)
         {
             using (SQLiteConnection conn = new SQLiteConnection(connectionString))
@@ -29,7 +53,7 @@ namespace OrientalApplication.Repositories
                 conn.Open();
 
                 var rows = conn.Query(
-                    "select * from PurchaseRequisition where prno=@PRNo and IsActive='yes'",
+                    "select " + PRColumns + " from PurchaseRequisition where prno=@PRNo and IsActive='yes'",
                     new { PRNo });
 
                 List<PurchaseRequisition> prList = new List<PurchaseRequisition>();
@@ -39,7 +63,7 @@ namespace OrientalApplication.Repositories
                 }
 
                 var itemReceivedRows = conn.Query(
-                    "select * from PRItemReceived where prno=@PRNo",
+                    "select " + PRItemReceivedColumns + " from PRItemReceived where prno=@PRNo",
                     new { PRNo });
 
                 List<ItemReceived> itemReceivedList = new List<ItemReceived>();
@@ -62,7 +86,7 @@ namespace OrientalApplication.Repositories
                 conn.Open();
 
                 var rows = conn.Query(
-                    "select * from PurchaseRequisition where prno=@PRNo and IsActive='yes' and PRNo not in (select PRNumber from PurchaseOrderItem) ",
+                    "select " + PRColumns + " from PurchaseRequisition where prno=@PRNo and IsActive='yes' and PRNo not in (select PRNumber from PurchaseOrderItem) ",
                     new { PRNo });
 
                 List<PurchaseRequisition> prList = new List<PurchaseRequisition>();
@@ -96,7 +120,7 @@ namespace OrientalApplication.Repositories
 
             PurchaseRequisition pr = new PurchaseRequisition();
             //pr.ItemReceivedObj = new ItemReceived();
-            pr.PRDate = Convert.ToDateTime(row.PRDate).ToString("dd-MM-yyyy");
+            pr.PRDate = SafeFormatDate(row.PRDate);
             pr.PRNo = Convert.ToString(row.PRNo);
             pr.ProjectRefDropdown = Convert.ToString(row.ProjectName);
             pr.ItemDropdown = Convert.ToString(row.ItemName);
@@ -147,26 +171,37 @@ namespace OrientalApplication.Repositories
             }
         }
 
+        // Dates from the UI can arrive as dd-MM-yyyy, dd/MM/yyyy, or (already) yyyy-MM-dd
+        // depending on which form/date-picker posted them. This used to be handled by splitting
+        // on whichever separator was present and blindly reversing the token order -- but that
+        // logic ran as two independent `if`s (not if/else-if), so a "/"-separated date got
+        // flipped once to yyyy-MM-dd and then flipped AGAIN because the result now contained "-",
+        // landing on dd-MM-yyyy instead -- inconsistent with every other row in the table.
+        // DateTime.TryParseExact against the known formats replaces that: it validates the input
+        // properly and always normalizes to the same ISO "yyyy-MM-dd" storage format regardless of
+        // which format came in.
+        private static readonly string[] KnownDateFormats = { "dd-MM-yyyy", "dd/MM/yyyy", "yyyy-MM-dd" };
+
+        private static string NormalizeDateForStorage(string rawDate)
+        {
+            if (string.IsNullOrWhiteSpace(rawDate))
+            {
+                return rawDate;
+            }
+            if (DateTime.TryParseExact(rawDate.Trim(), KnownDateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsed))
+            {
+                return parsed.ToString("yyyy-MM-dd");
+            }
+            // Unrecognized format: leave it as-is rather than mangle it further. It'll still be
+            // saved (matching the previous best-effort behavior) but won't silently flip formats.
+            return rawDate;
+        }
+
         public string SavePR(PurchaseRequisition pr)
         {
+            pr.PRDate = NormalizeDateForStorage(pr.PRDate);
+            pr.DateRequired = NormalizeDateForStorage(pr.DateRequired);
 
-            if (pr.DateRequired.Contains("/"))
-            {
-                var DateRequiredArray = pr.DateRequired.Split('/');
-                pr.DateRequired = DateRequiredArray[2] + "-" + DateRequiredArray[1] + "-" + DateRequiredArray[0];
-
-                var PRDateArray = pr.PRDate.Split('/');
-                pr.PRDate = PRDateArray[2] + "-" + PRDateArray[1] + "-" + PRDateArray[0];
-            }
-            if (pr.DateRequired.Contains("-"))
-            {
-                var DateRequiredArray = pr.DateRequired.Split('-');
-                pr.DateRequired = DateRequiredArray[2] + "-" + DateRequiredArray[1] + "-" + DateRequiredArray[0];
-
-
-                var PRDateArray = pr.PRDate.Split('-');
-                pr.PRDate = PRDateArray[2] + "-" + PRDateArray[1] + "-" + PRDateArray[0];
-            }
             if (!string.IsNullOrEmpty(pr.PRNo))
             {
                 return UpdatePR(pr);
@@ -312,7 +347,7 @@ namespace OrientalApplication.Repositories
                 conn.Open();
 
                 var rows = conn.Query(
-                    "select * from PurchaseRequisition where IsActive='yes' and upper(trim(projectname))=@Project  " +
+                    "select " + PRColumns + " from PurchaseRequisition where IsActive='yes' and upper(trim(projectname))=@Project  " +
                     " and PRNo not in (select PRNumber from PurchaseOrderItem)",
                     new { Project = project.Trim().ToUpper() });
 
@@ -332,7 +367,7 @@ namespace OrientalApplication.Repositories
                 conn.Open();
 
                 var rows = conn.Query(
-                    "select * from PurchaseRequisition  where IsActive='yes' and " +
+                    "select " + PRColumns + " from PurchaseRequisition  where IsActive='yes' and " +
                     " PRNo not in (select PRNumber from PurchaseOrderItem) order by PRDate Desc");
 
                 List<PurchaseRequisition> prList = new List<PurchaseRequisition>();
@@ -350,7 +385,7 @@ namespace OrientalApplication.Repositories
                 conn.Open();
 
                 var rows = conn.Query(
-                    "select IFNULL(po.PONumber,'Not Mapped') as PONumber,pr.* " +
+                    "select IFNULL(po.PONumber,'Not Mapped') as PONumber," + PRColumnsPrefixed +
                     " from PurchaseRequisition pr left join PurchaseOrderItem po " +
                     "on pr.PRNo = po.PRNumber where upper(trim(pr.projectname))=@ProjectName",
                     new { ProjectName = projectName.Trim().ToUpper() });
@@ -371,7 +406,7 @@ namespace OrientalApplication.Repositories
                 conn.Open();
 
                 var rows = conn.Query(
-                    "select pr.* from PurchaseOrderItem po" +
+                    "select " + PRColumnsPrefixed + " from PurchaseOrderItem po" +
                     " join PurchaseRequisition pr on po.PRNumber = pr.PRNo" +
                     " where pr.IsActive='yes' and po.PONumber = @PONumber",
                     new { PONumber = poNumber });
@@ -392,7 +427,7 @@ namespace OrientalApplication.Repositories
                 conn.Open();
 
                 var rows = conn.Query(
-                    "select * from PurchaseRequisition where IsActive='yes' and upper(trim(projectname))=@ProjectName",
+                    "select " + PRColumns + " from PurchaseRequisition where IsActive='yes' and upper(trim(projectname))=@ProjectName",
                     new { ProjectName = projectName.Trim().ToUpper() });
 
                 List<PurchaseRequisition> prList = new List<PurchaseRequisition>();
@@ -411,7 +446,7 @@ namespace OrientalApplication.Repositories
                 conn.Open();
 
                 var rows = conn.Query(
-                    "select IFNULL(po.PONumber,'Not Mapped') as PONumber,pr.* " +
+                    "select IFNULL(po.PONumber,'Not Mapped') as PONumber," + PRColumnsPrefixed +
                     " from PurchaseRequisition pr left join PurchaseOrderItem po " +
                     " on pr.PRNo = po.PRNumber where IsActive='yes' and upper(trim(projectname))=@ProjectName",
                     new { ProjectName = projectName.Trim().ToUpper() });
@@ -431,7 +466,7 @@ namespace OrientalApplication.Repositories
             {
                 conn.Open();
 
-                var rows = conn.Query("select * from PurchaseRequisition");
+                var rows = conn.Query("select " + PRColumns + " from PurchaseRequisition");
 
                 List<PurchaseRequisition> prList = new List<PurchaseRequisition>();
                 foreach (var row in rows)
@@ -448,7 +483,7 @@ namespace OrientalApplication.Repositories
             {
                 conn.Open();
 
-                string cmdText = "select IFNULL(po.PONumber,'Not Mapped') as PONumber,pr.* " +
+                string cmdText = "select IFNULL(po.PONumber,'Not Mapped') as PONumber," + PRColumnsPrefixed +
                                    " from PurchaseRequisition pr left join PurchaseOrderItem po " +
                                    " on pr.PRNo = po.PRNumber ";
                 object parameters = null;
@@ -514,16 +549,7 @@ namespace OrientalApplication.Repositories
 
         public string InsertItemReceived(ItemReceived itemReceived)
         {
-            if (itemReceived.ItemReceivedDate.Contains("/"))
-            {
-                var ItemReceivedArray = itemReceived.ItemReceivedDate.Split('/');
-                itemReceived.ItemReceivedDate = ItemReceivedArray[2] + "-" + ItemReceivedArray[1] + "-" + ItemReceivedArray[0];
-            }
-            if (itemReceived.ItemReceivedDate.Contains("-"))
-            {
-                var ItemReceivedArray = itemReceived.ItemReceivedDate.Split('-');
-                itemReceived.ItemReceivedDate = ItemReceivedArray[2] + "-" + ItemReceivedArray[1] + "-" + ItemReceivedArray[0];
-            }
+            itemReceived.ItemReceivedDate = NormalizeDateForStorage(itemReceived.ItemReceivedDate);
 
             using (SQLiteConnection conn = new SQLiteConnection(connectionString))
             {

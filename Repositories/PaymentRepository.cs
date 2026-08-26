@@ -3,6 +3,7 @@ using OrientalApplication.Models;
 using System;
 using System.Collections.Generic;
 using System.Data.SQLite;
+using System.Globalization;
 using System.Linq;
 using System.Web;
 
@@ -12,6 +13,25 @@ namespace OrientalApplication.Repositories
     {
         private readonly string connectionString = "Data Source=" + HttpContext.Current.Server.MapPath("~/App_Data/OrientalDB.db") + ";Version=3;New=True;Compress=True;Pooling=True;Max Pool Size=100;";
 
+        // See PurchaseRequisitionRepository.NormalizeDateForStorage for why this replaces the
+        // previous separator-sniffing split/reorder logic: DateTime.TryParseExact against the
+        // known incoming formats always normalizes to ISO "yyyy-MM-dd" instead of risking a
+        // format flip.
+        private static readonly string[] KnownDateFormats = { "dd-MM-yyyy", "dd/MM/yyyy", "yyyy-MM-dd" };
+
+        private static string NormalizeDateForStorage(string rawDate)
+        {
+            if (string.IsNullOrWhiteSpace(rawDate))
+            {
+                return rawDate;
+            }
+            if (DateTime.TryParseExact(rawDate.Trim(), KnownDateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsed))
+            {
+                return parsed.ToString("yyyy-MM-dd");
+            }
+            return rawDate;
+        }
+
         public bool SaveVendorPaymentsWithBill(PaymentViewModel paymentViewModel, bool IsNew = true)
         {
             int paymentId = GetLastPaymentId() + 1;
@@ -20,22 +40,7 @@ namespace OrientalApplication.Repositories
 
                 conn.Open();
 
-                if (paymentViewModel.PaymentDate != null && paymentViewModel.PaymentDate.Contains("/"))
-                {
-                    if (!string.IsNullOrEmpty(paymentViewModel.PaymentDate))
-                    {
-                        var BillDateArray = paymentViewModel.PaymentDate.Split('/');
-                        paymentViewModel.PaymentDate = BillDateArray[2] + "-" + BillDateArray[1] + "-" + BillDateArray[0];
-                    }
-                }
-                if (paymentViewModel.PaymentDate != null && paymentViewModel.PaymentDate.Contains("-"))
-                {
-                    if (!string.IsNullOrEmpty(paymentViewModel.PaymentDate))
-                    {
-                        var BillDateArray = paymentViewModel.PaymentDate.Split('-');
-                        paymentViewModel.PaymentDate = BillDateArray[2] + "-" + BillDateArray[1] + "-" + BillDateArray[0];
-                    }
-                }
+                paymentViewModel.PaymentDate = NormalizeDateForStorage(paymentViewModel.PaymentDate);
 
                 if (IsNew)
                 {
@@ -108,23 +113,7 @@ namespace OrientalApplication.Repositories
 
                 conn.Open();
 
-                if (bills.BillDate != null && bills.BillDate.Contains("/"))
-                {
-                    if (!string.IsNullOrEmpty(bills.BillDate))
-                    {
-                        var BillDateArray = bills.BillDate.Split('/');
-                        bills.BillDate = BillDateArray[2] + "-" + BillDateArray[1] + "-" + BillDateArray[0];
-                    }
-                }
-
-                if (bills.BillDate != null && bills.BillDate.Contains("-"))
-                {
-                    if (!string.IsNullOrEmpty(bills.BillDate))
-                    {
-                        var BillDateArray = bills.BillDate.Split('-');
-                        bills.BillDate = BillDateArray[2] + "-" + BillDateArray[1] + "-" + BillDateArray[0];
-                    }
-                }
+                bills.BillDate = NormalizeDateForStorage(bills.BillDate);
 
                 int res;
                 if (IsNew)
@@ -172,10 +161,25 @@ namespace OrientalApplication.Repositories
                 return true;
             }
         }
+        // BillDate/PaymentDate are declared DATE in the schema, so System.Data.SQLite
+        // auto-converts them to .NET DateTime while Dapper materializes the row -- before our own
+        // try/catch parsing below ever runs. A malformed stored value then throws FormatException
+        // out of conn.Query() itself. Casting to TEXT keeps them as plain strings so the ConvertX
+        // helpers/SafeFormatDate do the (safe) parsing instead. See
+        // PurchaseRequisitionRepository.cs for the full write-up of this quirk.
+        private const string VendorBillColumns =
+            "BillNo, Vendor, CAST(BillDate AS TEXT) AS BillDate, BillAmount, FullPaymentDone, Company";
+
+        private const string VendorBillColumnsPrefixed =
+            "b.BillNo, b.Vendor, CAST(b.BillDate AS TEXT) AS BillDate, b.BillAmount, b.FullPaymentDone, b.Company";
+
+        private const string VendorPaymentsColumns =
+            "PaymentId, Vendor, PaymentAmount, CAST(PaymentDate AS TEXT) AS PaymentDate, ChequeNo, OnlinePaymentRefNo, BillNo";
+
         public List<BillModelForReport> GetBillsForReport(string vendor)
         {
             List<BillModelForReport> billModels = new List<BillModelForReport>();
-            string sqlQuery = "select b.*,vc.ChallanNo from VendorBill b join VendorBillChallan vc on b.vendor=vc.vendor and b.BillNo = vc.BillNo";
+            string sqlQuery = "select " + VendorBillColumnsPrefixed + ",vc.ChallanNo from VendorBill b join VendorBillChallan vc on b.vendor=vc.vendor and b.BillNo = vc.BillNo";
             object parameters = null;
             if (!string.IsNullOrEmpty(vendor))
             {
@@ -209,7 +213,7 @@ namespace OrientalApplication.Repositories
         {
             List<BillModel> vendorPendingBills = new List<BillModel>();
             string sqlQuery = @"
-							 select b.* from VendorBill b where (b.FullPaymentDone is null or  b.FullPaymentDone='false' or  b.FullPaymentDone='False')
+							 select " + VendorBillColumnsPrefixed + @" from VendorBill b where (b.FullPaymentDone is null or  b.FullPaymentDone='false' or  b.FullPaymentDone='False')
 							and b.Vendor = @VendorName";
             using (SQLiteConnection connection = new SQLiteConnection(connectionString))
             {
@@ -256,7 +260,7 @@ namespace OrientalApplication.Repositories
                 conn.Open();
 
                 var rows = conn.Query(
-                    "select * from VendorBill where BillNo = @BillNo and vendor = @Vendor",
+                    "select " + VendorBillColumns + " from VendorBill where BillNo = @BillNo and vendor = @Vendor",
                     new { BillNo, Vendor = vendor });
 
                 foreach (var row in rows)
@@ -359,7 +363,7 @@ namespace OrientalApplication.Repositories
                 conn.Open();
 
                 var rows = conn.Query(
-                    "select * from VendorPayments where vendor = @Vendor order by paymentId desc Limit 20",
+                    "select " + VendorPaymentsColumns + " from VendorPayments where vendor = @Vendor order by paymentId desc Limit 20",
                     new { Vendor = vendor });
 
                 List<VendorPayments> vendorPaymentsList = new List<VendorPayments>();
@@ -379,7 +383,7 @@ namespace OrientalApplication.Repositories
                 conn.Open();
 
                 var rows = conn.Query(
-                    "select * from VendorPayments where vendor = @Vendor ",
+                    "select " + VendorPaymentsColumns + " from VendorPayments where vendor = @Vendor ",
                     new { Vendor = vendor });
 
                 List<VendorPayments> vendorPaymentsList = new List<VendorPayments>();
@@ -474,7 +478,7 @@ namespace OrientalApplication.Repositories
                 conn.Open();
 
                 var rows = conn.Query(
-                    "select * from VendorBill where BillNo = @BillNo and vendor = @Vendor",
+                    "select " + VendorBillColumns + " from VendorBill where BillNo = @BillNo and vendor = @Vendor",
                     new { BillNo, Vendor = vendor });
 
                 BillsAndPaymentModel billsAndPaymentModel = null;

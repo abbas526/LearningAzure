@@ -1,4 +1,4 @@
-﻿@{
+@{
 	ViewBag.Title = "Index";
 }
 
@@ -9,62 +9,7 @@
 <script src="~/Scripts/jquery.validate.min-1.19.js"></script>
 <script src="~/Scripts/form-validation.js"></script>
 <link href="~/Content/Purchase.css" rel="stylesheet" />
-
-<!-- DataTables CSS -->
-<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.24/css/jquery.dataTables.css">
-
-<!-- DataTables JS -->
-<script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.js"></script>
-
-
-<style>
-	#errormessage {
-		color: red;
-	}
-
-	hr {
-		border-top: 1px solid blue;
-	}
-
-	#btnSave {
-		background-color: #008CBA; /* Green */
-		border: none;
-		color: white;
-		padding: 5px 5px;
-		text-align: center;
-		text-decoration: none;
-		display: inline-block;
-		font-size: 16px;
-		margin: 4px 2px;
-		cursor: pointer;
-	}
-
-	#btnPOSave {
-		background-color: #008CBA;
-		border: none;
-		color: white;
-		padding: 5px 5px;
-		text-align: center;
-		text-decoration: none;
-		display: inline-block;
-		font-size: 16px;
-		margin: 4px 2px;
-		cursor: pointer;
-	}
-
-	#btnReceivedSave {
-		background-color: #0094ff;
-		border: none;
-		color: white;
-		padding: 5px 5px;
-		text-align: center;
-		text-decoration: none;
-		display: inline-block;
-		font-size: 16px;
-		margin: 4px 2px;
-		cursor: pointer;
-	}
-</style>
+<link href="~/Content/ModernUI.css" rel="stylesheet" />
 
 <script type="text/javascript">
     var VendorList; var Id = 0;
@@ -78,7 +23,24 @@
         window.open(url,"_blank","top=20, left=20, scrollbars=yes width=800, height=500");
     }
 
+    // Load button is always visible; format is checked when it's clicked (see LoadPRClicked below),
+    // e.g. "KSK-123" (user code abbreviation, a dash, then digits) - matches the UserCode dropdown
+    // values above (KSK, JB, AS, MA, CV, IS, OFMS, OMMS).
+    var PRNoFormat = /^[A-Za-z]+-\d+$/;
+    // Called everywhere #PRNo's value changes (load, save, new/reset, clear) - keeps the Load
+    // button and the "PR No: ..." label next to the Quick PO title both in sync with it.
+    function updateLoadButtonVisibility() {
+        $('#btnSearchPR').show();
+        var prNo = $('#PRNo').val();
+        $('#QuickPOPRNoDisplay').text(prNo ? 'PR No : ' + prNo : '');
+    }
+
 	function PRAddToTable(PRNumber, Item, Qty, Size, Unit, MOC, PRDate, DateRequired, Remark, IsAllItemReceived, AssignedToPO) {
+		// Normalize "All Item Recd" to just yes/no - the DB (and PRGet) can hand back null/blank
+		// for a PR that's never had the Item Received flag set, which used to render literally as
+		// the string "null"/"undefined" in this column instead of a sensible default.
+		var isAllItemReceived = (IsAllItemReceived != null && IsAllItemReceived.indexOf('yes') >= 0) ? 'yes' : 'no';
+
 		// Append product to the table
 		var newRow = $("<tr>" +
 			"<td><a href='#' onclick=LoadPR('" + PRNumber + "')>" + PRNumber + "</a></td>" +
@@ -90,52 +52,100 @@
 			"<td>" + PRDate + "</td>" +
 			"<td>" + DateRequired + "</td>" +
 			"<td>" + Remark + "</td>" +
-			"<td>" + IsAllItemReceived + "</td>" +
+			"<td>" + isAllItemReceived + "</td>" +
 			"</tr>");
 
-		// Check the value of the 10th column and apply background color
-		var col10Value = IsAllItemReceived; // Assuming `IsAllItemReceived` is the value in the 10th column
-
-		if (col10Value != null && col10Value.indexOf('yes') >= 0) {
+		// Tag the row with its colour category (also drives the Colour Filter dropdown above the
+		// table - keep this in sync with that dropdown's option values).
+		var rowColour = 'white';
+		if (isAllItemReceived === 'yes') {
+			rowColour = 'green';
 			newRow.css('background-color', '#c8f7c8');
 		}
-        else {
-			if (AssignedToPO != '' && AssignedToPO !== undefined && AssignedToPO != 'Not Mapped') {
-				newRow.css('background-color', 'yellow');
-			}
+        else if (AssignedToPO != '' && AssignedToPO !== undefined && AssignedToPO != 'Not Mapped') {
+			rowColour = 'yellow';
+			newRow.css('background-color', 'yellow');
         }
+		newRow.attr('data-rowcolour', rowColour);
 
 
 		// Append the new row to the table
 		$("#PRTable tbody").append(newRow);
 	}
 
+	// Combines the Item, MOC and Colour filters above #PRTable into a single pass, so all three
+	// narrow the table together instead of each one undoing what the others hid.
+	function applyPRTableFilters() {
+		var selectedItem = $("#ItemDropdownPRTable").val();
+		var selectedMOC = $("#MOCDropdownPRTable").val();
+		var selectedColour = $("#ColourFilterPRTable").val();
+
+		$("#PRTable tbody tr").each(function () {
+			var row = $(this);
+			var rowItem = row.find("td:eq(1)").text().trim();
+			var rowMOC = row.find("td:eq(3)").text().trim();
+			var rowColour = row.attr('data-rowcolour') || 'white';
+
+			var matches = (selectedItem === "" || rowItem === selectedItem) &&
+				(selectedMOC === "" || rowMOC === selectedMOC) &&
+				(selectedColour === "" || rowColour === selectedColour);
+
+			row.toggle(matches);
+		});
+	}
+
+	// Sorts #PRTable's rows in place by its PR Date (colIndex 6) or Reqd Date (colIndex 7) column.
+	// Re-appending every row - filtered-out ones included - keeps this correct regardless of
+	// whether a filter is active: a hidden row just stays hidden (applyPRTableFilters controls
+	// that separately via display:none) wherever the sort places it, so the visible rows - full
+	// list or filtered subset, whichever is showing - end up in the requested order.
+	function sortPRTableByDate(colIndex, direction) {
+		var tbody = $('#PRTable tbody');
+		var rows = tbody.find('tr').get();
+
+		rows.sort(function (rowA, rowB) {
+			var dateA = parsePRTableDate($(rowA).find('td').eq(colIndex).text().trim());
+			var dateB = parsePRTableDate($(rowB).find('td').eq(colIndex).text().trim());
+
+			// Rows with a blank/unparsable date sort after every dated row, either direction.
+			if (dateA === null && dateB === null) return 0;
+			if (dateA === null) return 1;
+			if (dateB === null) return -1;
+
+			return direction === 'asc' ? dateA - dateB : dateB - dateA;
+		});
+
+		$.each(rows, function (i, row) {
+			tbody.append(row);
+		});
+	}
+
+	// #PRTable's PR Date/Reqd Date columns are always rendered dd-MM-yyyy - every source of this
+	// table's data goes through PurchaseRequisitionRepository.SafeFormatDate, which normalizes to
+	// that format. Returns a comparable timestamp, or null if the cell is blank/unparsable.
+	function parsePRTableDate(text) {
+		if (!text) return null;
+		var parts = text.split('-');
+		if (parts.length !== 3) return null;
+		var day = parseInt(parts[0], 10);
+		var month = parseInt(parts[1], 10);
+		var year = parseInt(parts[2], 10);
+		if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
+		return new Date(year, month - 1, day).getTime();
+	}
+
     $(document).ready(function () {
 
         $("#ItemDropdownPRTable").change(function () {
-            var selectedItem = $(this).val();
-
-            $("#PRTable tbody tr").each(function () {
-                var rowItem = $(this).find("td:eq(1)").text().trim(); // Item column = 2nd col
-                if (selectedItem === "" || rowItem === selectedItem) {
-                    $(this).show();
-                } else {
-                    $(this).hide();
-                }
-            });
+            applyPRTableFilters();
         });
 
         $("#MOCDropdownPRTable").change(function () {
-            var selectedItem = $(this).val();
+            applyPRTableFilters();
+        });
 
-            $("#PRTable tbody tr").each(function () {
-                var rowItem = $(this).find("td:eq(3)").text().trim(); 
-                if (selectedItem === "" || rowItem === selectedItem) {
-                    $(this).show();
-                } else {
-                    $(this).hide();
-                }
-            });
+        $("#ColourFilterPRTable").change(function () {
+            applyPRTableFilters();
         });
 
         $.ajax({
@@ -236,6 +246,13 @@
         $('#DateRequired').datepicker({
             dateFormat: "dd-mm-yy",
         });
+
+        // PR No starts blank, and the Admin Code must always be re-typed - never left
+        // pre-filled by the browser's saved-password autofill.
+        $('#PRNo').val('');
+        $('#POAdminCode').val('');
+        $('#PRNo').on('input', updateLoadButtonVisibility);
+        updateLoadButtonVisibility();
     });
 
 </script>
@@ -248,11 +265,77 @@
         alert(res);
         setTimeout(function() { $("#message").hide(); }, 5000);
     }
+    // Wipes every field/table/message on the screen back to the same blank state a fresh page
+    // load starts in - PR details, the Item Received table, the PR listing grid, the Quick PO
+    // section, and all message/error boxes. Shared by "New PR" and "Reset" below; they only differ
+    // in what state PRNo/Save are left in afterwards.
+    function ClearAllFieldsAndTables() {
+        // PR detail fields
+        $("#UserCode").val('');
+        $("#PRDate").val('');
+        $("#ItemDropdown").val('');
+        $("#NewItem").val('');
+        $("#ProjectRefDropdown").val('');
+        $("#ItemSize").val('');
+        $("#Specs").val('');
+        $("#Quantity").val('');
+        $("#DateRequired").val('');
+        $("#Unit").val('');
+        $("#OldProjects").val('');
+        $("#Remark").val('');
+        $("#Drawing").val('');
+        $("#PONumber").text('');
+
+        // PR No + Load button
+        $("#PRNo").val('');
+        $('#PRNo').prop('disabled', false);
+        updateLoadButtonVisibility();
+
+        // Messages
+        $('#message').empty();
+        $('#errormessage').empty();
+        $('#messagePO').empty();
+        $('#ItemReceivedErrorMessage').empty();
+
+        // Item Received section
+        $('#ItemReceivedTable tbody').empty();
+        $('input[name="IsAllItemReceived"][value="yes"]').prop('checked', false).prop('disabled', false);
+        $('input[name="IsAllItemReceived"][value="no"]').prop('checked', false).prop('disabled', false);
+        $('#btnAddItem').prop('disabled', false);
+
+        // PR listing grid + its filter dropdowns (same reset shape GetPRs() uses before loading)
+        $('#PRTable tbody').empty();
+        $("#ItemDropdownPRTable").empty().append('<option value="">-- Select Item --</option>').prop("disabled", true);
+        $("#MOCDropdownPRTable").empty().append('<option value="">-- Select MOC --</option>').prop("disabled", true);
+        $('#ColourFilterPRTable').val('');
+
+        // Quick PO section
+        $('#Rate').val('');
+        $('#POQty').val('');
+        $('#VendorForPO').val('');
+        $('#PORemarks').val('');
+        $('#PRNumberHidden').val('');
+        $('#QuickPOSection').hide();
+
+        $('#btnSave').prop('disabled', true);
+    }
+
     function AddData() {
-        var pr = $("#UserCode").val();
-         $("#PRNo").val('');
-         $('#PRNo').prop('disabled', true);
-         $('#btnSave').prop('disabled', false);
+        // Exception to the full reset: User Code is who you're working as, not part of any one
+        // PR's data - keep it selected across "New PR" so it doesn't have to be re-picked.
+        var userCode = $('#UserCode').val();
+        ClearAllFieldsAndTables();
+        $('#UserCode').val(userCode);
+        // Ready to enter a brand new PR: number is auto-assigned on save, so lock the field
+        // and enable Save.
+        $('#PRNo').prop('disabled', true);
+        $('#btnSave').prop('disabled', false);
+    }
+
+    // "Cancel"/Reset: undo whatever was on screen (including a pending "New PR") and bring the
+    // page back to exactly the state it was in when it first loaded - no actual page reload.
+    function CancelToFreshScreen() {
+        ClearAllFieldsAndTables();
     }
     function SaveData() {
         debugger;
@@ -278,6 +361,7 @@
                         PRAddToTable(data.PRNo, data.ItemDropdown, data.Quantity, data.ItemSize, data.Unit, data.Specs, data.PRDate, data.DateRequired, data.Remark, data.IsAllItemReceived,'');
                     }
                      $('#PRNo').val(data.PRNo);
+                     updateLoadButtonVisibility();
                      ShowSaveSuccess(data.Result);
                     }
                     else {
@@ -294,6 +378,19 @@
     }
     function LoadPR(PRNumber) {
         $("#PRNo").val(PRNumber);
+        updateLoadButtonVisibility();
+        LoadData();
+    }
+
+    // Load button click handler: the button is always shown, so the PR number format is
+    // validated here instead of via visibility. PRGet itself still guards against a PR number
+    // that's correctly formatted but doesn't exist (see the data.PRNo check in LoadData below).
+    function LoadPRClicked() {
+        if (!PRNoFormat.test($('#PRNo').val().trim())) {
+            alert('Enter a valid PR number');
+            return;
+        }
+        $('#PRNo').prop('disabled', false);
         LoadData();
     }
 
@@ -306,8 +403,23 @@
             success: function (data) {
                 //debugger;
                 console.log(data);
+                // PRGet returns a near-empty PurchaseRequisition (no PRNo) with Result set to an
+                // error message when the PR wasn't found - don't populate the form from that.
+                if (!data || !data.PRNo) {
+                    alert(data && data.Result ? data.Result : 'Enter a valid PR number');
+                    return;
+                }
                 $("#PRDate").val(data.PRDate);
                 $("#PRNo").val(data.PRNo);
+                updateLoadButtonVisibility();
+                // #ProjectRefDropdown is only ever populated with ACTIVE projects
+                // (GetProjectNames() filters IsActive='yes'). A PR saved against a project that
+                // has since been made inactive won't have a matching <option>, so .val() below
+                // would silently fail to select anything. Add a stand-in option for it first.
+                if (data.ProjectRefDropdown &&
+                    $("#ProjectRefDropdown option").filter(function () { return $(this).val() === data.ProjectRefDropdown; }).length === 0) {
+                    $("#ProjectRefDropdown").append($("<option>", { value: data.ProjectRefDropdown, text: data.ProjectRefDropdown + " (Inactive)" }));
+                }
                 $("#ProjectRefDropdown").val(data.ProjectRefDropdown);
                 $("#ItemDropdown").val(data.ItemDropdown);
                 $("#ItemSize").val(data.ItemSize);
@@ -347,18 +459,18 @@
                     $.each(data.ItemReceivedList, function (index, item) {
                         var newRow = $('<tr>');
 
-                        newRow.append($('<td>').html('<input type="text" style="width: 12em"  Id="ItemReceivedChallanNo_' + ctr + '" value="' + item.ItemReceivedChallanNo + '"/>'));
-                        newRow.append($('<td>').html('<input type="text" size="8" class="RecDate" style="width: 7em" Id="ItemReceivedDate_' + ctr + '" value="' + item.ItemReceivedDate + '"/>'));
-                        newRow.append($('<td>').html('<input type="text" size="8" style="width: 7em" Id="ItemReceivedOK_' + ctr + '" value="' + item.ItemReceivedOK + '"/>'));
+                        newRow.append($('<td>').html('<input type="text" class="form-control" style="width: 12em"  Id="ItemReceivedChallanNo_' + ctr + '" value="' + item.ItemReceivedChallanNo + '"/>'));
+                        newRow.append($('<td>').html('<input type="text" size="8" class="RecDate form-control" style="width: 7em" Id="ItemReceivedDate_' + ctr + '" value="' + item.ItemReceivedDate + '"/>'));
+                        newRow.append($('<td>').html('<input type="text" size="8" class="form-control" style="width: 7em" Id="ItemReceivedOK_' + ctr + '" value="' + item.ItemReceivedOK + '"/>'));
                         //newRow.append($('<td>').html('<textarea rows=2 cols=20 Id="Comment_' + ctr + '" value="' + item.ItemReceivedComment + '"/></textarea>'));
-                        newRow.append($('<td>').html('<textarea  Id="ItemReceivedComment_' + ctr + '" rows="2">' + item.ItemReceivedComment + '</textarea>'));
+                        newRow.append($('<td>').html('<textarea class="form-control" Id="ItemReceivedComment_' + ctr + '" rows="2">' + item.ItemReceivedComment + '</textarea>'));
                         if (ctr === 1) {
-                            newRow.append($('<td>').html('<select style="width: 18em" Id="Vendor_' + ctr + '" />'));
+                            newRow.append($('<td>').html('<select class="form-control" style="width: 18em" Id="Vendor_' + ctr + '" />'));
                         }
                         else {
                             newRow.append($('<td>').html(''));
                         }
-                        newRow.append($('<td>').html('<input type="button" value="Delete"  onclick="DeleteItem(' + ctr + ')" Id=delete_' + ctr + ' >'));
+                        newRow.append($('<td>').html('<button type="button" class="btn btn-danger btn-xs" onclick="DeleteItem(' + ctr + ')" Id=delete_' + ctr + '>Delete</button>'));
                         tbody.append(newRow);
 
                         var vendorDropdown = newRow.find("select");
@@ -386,12 +498,6 @@
                         $('.RecDate').datepicker({
                             dateFormat: "dd-mm-yy",
                         });
-                        ////for multiple row .. disable the single radio button
-                        //var c = $("#ItemReceivedTable tbody tr").length;
-                        //if (c > 1) {
-                        //    $('input[name="IsAllItemReceived"][value="true"]').prop('disabled', true);
-                        //    $('input[name="IsAllItemReceived"][value="false"]').prop('checked', true);
-                        //}
                     });
                 }
                 else {
@@ -514,17 +620,14 @@
                          $("#MOCDropdownPRTable").append('<option value="' + item + '">' + item + '</option>');
                      });
                      $("#MOCDropdownPRTable").prop("disabled", false);
+
+                     // Re-apply the Colour Filter (Item/MOC dropdowns above were just rebuilt
+                     // blank, but Colour Filter isn't - honour it if one was already selected).
+                     applyPRTableFilters();
                  }
              }
          });
     }
-
-    @*function ExportPRsForProject() {
-        var url = '@Url.Action("WritePRsForProjectItemToExcel", "Report")';
-        var projectname = $("#ProjectRefDropdown").val();
-
-        window.location.href = url + '?ProjectName=' + projectname;
-    }*@
 
     function ExportPRsForProject() {
         var url = '@Url.Action("WritePRsForProjectItemToExcel", "Report")';
@@ -572,6 +675,7 @@
     function ClearScreen() {
         $("#PRDate").val('');
         $("#PRNo").val('');
+        updateLoadButtonVisibility();
         $("#ProjectRefDropdown").val('');
         $("#ItemDropdown").val('');
         $("#ItemSize").val('');
@@ -644,12 +748,12 @@
         var rowCount = $("#ItemReceivedTable tbody tr").length;
         Id = rowCount + 1;
         var newRow = $("<tr>" +
-            "<td><input type='text' style='width: 12em' id='" + "ItemReceivedChallanNo_" + Id + "'/>" + "</td>" +
-            "<td><input type='text' class='RecDate' style='width: 7em' size='8' id='" + "ItemReceivedDate_" + Id + "'/>" + "</td>" +
-            "<td><select size='2' style='width: 7em' size='8' id='" + "ItemReceivedOK_" + Id + "'>" + "<option value='Ok' selected>Ok</option><option value='Not Ok' >Not Ok</option></select></td>" +
-            "<td><textarea rows=2 cols=20 id='" + "ItemReceivedComment_" + Id + "'/>" + "</textarea>" +
-            "<td>" + (Id === 1 ? "<select class='vendorclass' style='width: 18em' id='" + "Vendor_" + Id + "'></select>" : "") + "</td>" +
-            "<td><input type='button' class='delete-button' value='Delete' style='width: 7em' size='8' id='" + "delete_" + Id + "' onclick='DeleteItem(" + Id + ")'/></td>" +
+            "<td><input type='text' class='form-control' style='width: 12em' id='" + "ItemReceivedChallanNo_" + Id + "'/>" + "</td>" +
+            "<td><input type='text' class='RecDate form-control' style='width: 7em' size='8' id='" + "ItemReceivedDate_" + Id + "'/>" + "</td>" +
+            "<td><select class='form-control' style='width: 7em' id='" + "ItemReceivedOK_" + Id + "'>" + "<option value='Ok' selected>Ok</option><option value='Not Ok' >Not Ok</option></select></td>" +
+            "<td><textarea class='form-control' rows=2 cols=20 id='" + "ItemReceivedComment_" + Id + "'/>" + "</textarea>" +
+            "<td>" + (Id === 1 ? "<select class='vendorclass form-control' style='width: 18em' id='" + "Vendor_" + Id + "'></select>" : "") + "</td>" +
+            "<td><button type='button' class='delete-button btn btn-danger btn-xs' id='" + "delete_" + Id + "' onclick='DeleteItem(" + Id + ")'>Delete</button></td>" +
             "</tr>");
 
         // Append the new row to the table body
@@ -833,372 +937,378 @@
 </script>
 
 
-<div class="container">
-	<form class="form-horizontal" role="form" name="PRForm" id="PRForm">
-		<h2>Purchase Requisition Details</h2>
+<div class="container mt-4 ui-modern">
 
-		<div class="row">
-			<div class="form-group col-md-6">
-				<label for="PR" class="col-sm-3 control-label required">User Code</label>
-				<div class="col-sm-9">
-					<select name="UserCode" id="UserCode">
-						<option value="">--Select--</option>
-						<option value="KSK">KSK</option>
-						<option value="JB">JB</option>
-						<option value="AS">AS</option>
-						<option value="MA">MA</option>
-						<option value="CV">CV</option>
-						<option value="IS">IS</option>
-						<option value="OFMS">OFMS</option>
-						<option value="OMMS">OMMS</option>
-					</select>
-				</div>
-			</div>
-			<div class="form-group col-md-6">
+    <div class="ui-page-title">
+        <span class="glyphicon glyphicon-file"></span>Purchase Requisition Details
+    </div>
 
-				<label for="Admin Code" class="col-sm-3 control-label ">Admin Code</label> &nbsp;
-				<input type="password" name="POAdminCode" id="POAdminCode" size="4" /> &nbsp;&nbsp;
-				<input type="button" name="RemovePRButton" id="RemovePRButton" value="Delete PR" onclick="RemovePR();" />
+    <form role="form" name="PRForm" id="PRForm" autocomplete="off">
 
-			</div>
-		</div>
-		<div class="row">
-			<div class="form-group col-md-6">
-				<label for="PR" class="col-sm-3 control-label">Purchase Requisition</label>
-				<div class="col-sm-5">
-					<input type="text" id="PRNo" name="PRNo" placeholder="Purchase Requisition" class="form-control">
-				</div>
-				<div class="col-sm-1">
-					<span>
-						<a href="#" onclick="PrintPR();" title="Print PR" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
-							<i class="glyphicon glyphicon-print"></i>
-						</a>
-					</span>
-					<span>
-						<a href="#" onclick="$('#PRNo').prop('disabled', false);LoadData();" title="Search" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
-							<i class="glyphicon glyphicon-search"></i>
-						</a>
-					</span>
-					@*<img src="~/Images/UpIcon.png" style="display: block; height: 32px; width: 32px;" />*@
-				</div>
-			</div>
-			<div class="form-group col-md-6">
-				<div>
-					<input type="button" id="btnAdd" name="btnAdd" value="Add New PR" onclick="AddData();" />&nbsp;&nbsp;
-					<input type="button" id="btnSearchPR" name="btnSearchPR" value="Search PR" onclick="LoadData();" />&nbsp;&nbsp;
-					<b>PO No : <span id="PONumber" style="background-color: #39FF14;"></span></b>
-				</div>
-			</div>
-		</div>
-		<div class="row">
-			<div class="form-group col-md-6">
-				<label for="PR" class="col-sm-3 control-label required">P R Date</label>
-				<div class="col-sm-6">
-					<input type="text" id="PRDate" name="PRDate" autocomplete="off" readonly="readonly" class="form-control" placeholder="PR Date" />
-				</div>
-			</div>
-			<div class="form-group col-md-6">
-				<label for="Item" class="control-label col-sm-3 required">Item</label>
-				<div class="col-sm-6">
-					<select class="form-control" id="ItemDropdown" name="ItemDropdown"></select>
-				</div>
-			</div>
-		</div>
-		<div class="row">
-			<div class="form-group col-md-6">
-				<label for="ProjectRef" class="col-sm-3 control-label required">Project Name</label>
-				<div class="col-sm-5">
-					<select class="form-control" id="ProjectRefDropdown" name="ProjectRefDropdown"></select>
-				</div>
-				<div class="col-sm-1">
-					<span>
-						<a href="#" onclick="GetPRs('new');" title="Display PRs for Project" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
-							<i class="glyphicon glyphicon-th-list"></i>
-						</a>
-						<a href="#" onclick="ExportPRsForProject();" title="Export PRs for Project to Excel" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
-							<i class="glyphicon glyphicon-save"></i>
-						</a>
-					</span>
-					@*<img src="~/Images/UpIcon.png" style="display: block; height: 32px; width: 32px;" />*@
-				</div>
-			</div>
-			<div class="form-group col-md-6" id="hiddenItemdiv">
-				<label for="Item" class="control-label col-sm-3">New Item</label>
-				<div class="col-sm-6">
-					<input type="text" id="NewItem" placeholder="New Item" class="form-control" name="NewItem">
-				</div>
-			</div>
-		</div>
-		<div class="row">
-			<div class="form-group col-md-6">
-				<label for="email" class="col-sm-3 control-label required">Size</label>
-				<div class="col-sm-6">
-					<input  type="text" id="ItemSize" placeholder="Size" class="form-control" name="ItemSize">
-				</div>
-			</div>
-			<div class="form-group col-md-6">
-				<label for="Specs" class="col-sm-3 control-label required">Spec/MOC</label>
-				<div class="col-sm-6">
-					<input  type="text" id="Specs" name="Specs" placeholder="Specs/MOC" class="form-control">
-				</div>
-			</div>
-		</div>
-		<div class="row">
-			<div class="form-group col-md-6">
-				<label for="password" class="col-sm-3 control-label required">Quantity Ordered</label>
-				<div class="col-sm-6">
-					<input type="number" min="0" value="0" step=".01" id="Quantity" name="Quantity"  placeholder="Quantity Ordered" class="form-control">
-				</div>
-			</div>
-			<div class="form-group col-md-6">
-				<label for="Quantity" class="col-sm-3 control-label required">Date Required</label>
-				<div class="col-sm-9">
-					<input type="text" autocomplete="off" readonly="readonly" id="DateRequired" name="DateRequired"  class="form-control" placeholder="Date Required" />
-				</div>
-			</div>
-		</div>
-		<div class="row">
-			<div class="form-group col-md-6">
-				<label for="password" class="col-sm-3 control-label required">Unit of Measurement</label>
-				<div class="col-sm-6">
-					<select id="Unit" name="Unit"  class="form-control">
-						<option value="">--Select--</option>
-						<option value="Kgs">Kgs</option>
-						<option value="Nos">Nos</option>
-						<option value="Dozen">Dozen</option>
-						<option value="Metres">Metres</option>
-						<option value="Feet">Feet</option>
-						<option value="Litres">Litres</option>
-						<option value="Sets">Sets</option>
-					</select>
-				</div>
-			</div>
-			<div class="form-group col-md-6">
-				<label for="ProjectRef" class="col-sm-3 control-label">Old Projects</label>
-				<div class="col-sm-5">
-					<select class="form-control" id="OldProjects" name="OldProjects"></select>
-				</div>
-				<div class="col-sm-1">
-					<span>
-						<a href="#" onclick="GetPRs('old');" title="Display Old PRs for Project" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
-							<i class="glyphicon glyphicon-th-list"></i>
-						</a>
-					</span>
-					@*<img src="~/Images/UpIcon.png" style="display: block; height: 32px; width: 32px;" />*@
-				</div>
-			</div>
-		</div>
+        <!-- ================= Search / Manage PR ================= -->
+        <div class="ui-card">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-search"></span>Find / Create Purchase Requisition</div>
 
-		<div class="row">
-			<div class="form-group col-md-6">
-				<label for="remark" class="col-sm-3 control-label">Remark</label>
-				<div class="col-sm-6">
-					<input type="text" name="Remark" id="Remark" placeholder="Remark" class="form-control">
-				</div>
-			</div>
-			<div class="form-group col-md-6 pull-left">
-				<label for="remark" class="col-sm-3 control-label">Drawing</label>
-				<div class="col-sm-6">
-					<input type="text" name="Drawing" id="Drawing" placeholder="Drawing" class="form-control">
-				</div>
-			</div>
-		</div>
-		<div class="row">
-			<div class="form-group col-md-6">
-                &nbsp;
-			</div>
-            <div class="form-group col-md-6 pull-left">
-                <input type="submit" id="btnSave" name="btnSave" value="Save PR" onclick="return SaveData();" />
-                &nbsp;&nbsp;
-                <div id="message" name="message" class="success"></div>
-
+            <div class="row">
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label for="UserCode" class="form-label required">User Code</label>
+                        <select name="UserCode" id="UserCode" class="form-control ui-input-sm">
+                            <option value="">--Select--</option>
+                            <option value="KSK">KSK</option>
+                            <option value="JB">JB</option>
+                            <option value="AS">AS</option>
+                            <option value="MA">MA</option>
+                            <option value="CV">CV</option>
+                            <option value="IS">IS</option>
+                            <option value="OFMS">OFMS</option>
+                            <option value="OMMS">OMMS</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-5">
+                    <div class="form-group">
+                        <label for="PRNo" class="form-label">Purchase Requisition No</label>
+                        <div class="input-group">
+                            <input type="text" id="PRNo" name="PRNo" autocomplete="off" placeholder="e.g. KSK-123" class="form-control ui-input-md">
+                            <span class="input-group-btn">
+                                <button class="btn btn-info" type="button" id="btnSearchPR" name="btnSearchPR"
+                                        onclick="LoadPRClicked();" title="Load this PR">
+                                    <span class="glyphicon glyphicon-search"></span>Load
+                                </button>
+                                <button class="btn btn-default" type="button" onclick="PrintPR();" title="Print PR">
+                                    <span class="glyphicon glyphicon-print"></span>
+                                </button>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" style="visibility:hidden;">&nbsp;</label>
+                    <div>
+                        <button type="button" id="btnAdd" name="btnAdd" class="btn btn-default" onclick="AddData();">
+                            <span class="glyphicon glyphicon-plus"></span>New PR
+                        </button>
+                        <button type="button" id="btnReset" name="btnReset" class="btn btn-default" onclick="CancelToFreshScreen();" title="Clear everything and return to a fresh screen">
+                            <span class="glyphicon glyphicon-erase"></span>Reset
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" style="visibility:hidden;">&nbsp;</label>
+                    <div>
+                        <span class="ui-inline-label">Linked PO:</span>
+                        <span class="ui-badge" id="PONumber" title="PO(s) mapped to this PR"></span>
+                    </div>
+                </div>
             </div>
-		</div>
-		<div id="errormessage">
-		</div>
-	</form>
-	<hr />
-	<p>
-		<b>Item Received Section</b>
-		&nbsp;&nbsp;&nbsp;&nbsp;
-		All Items have been received ? &nbsp;:
-		<input type="radio" name="IsAllItemReceived" id="IsAllItemReceived" value="yes" checked /> Yes &nbsp;
-		<input type="radio" name="IsAllItemReceived" id="IsAllItemReceived" value="no" /> No
 
-	</p>
-	<form class="form-horizontal" id="ItemReceivedForm" name="ItemReceivedForm">
-		@*<div class="row">
-				<div class="form-group col-md-6">
-					<a id="ExpandItemReceivedLink" name="ExpandItemReceivedLink" href="#" onclick="ToggleItemReceivedSection();">Expand/Collapse Item Received Section</a>
-				</div>
-				<div class="form-group col-md-6">
+            <div class="ui-admin-row">
+                <span class="ui-admin-label">Admin Action</span>
+                <div class="row">
+                    <div class="col-md-3">
+                        <input type="password" name="POAdminCode" id="POAdminCode" placeholder="Admin Code"
+                               autocomplete="new-password" value="" class="form-control ui-input-sm">
+                    </div>
+                    <div class="col-md-3">
+                        <button type="button" name="RemovePRButton" id="RemovePRButton" class="btn btn-danger" onclick="RemovePR();">
+                            <span class="glyphicon glyphicon-trash"></span>Delete PR
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-				</div>
-			</div>*@
-		@*<div id="ItemReceivedSection" name="ItemReceivedSection">
-				<div class="row">
-					<div class="form-group col-md-6">
-						<label class="col-sm-3 control-label required" style="color:dodgerblue">Item Received Date</label>
-						<div class="col-sm-6">
-							<input type="text" autocomplete="off" readonly="readonly" id="ItemReceivedDate" name="ItemReceivedDate" class="form-control" placeholder="Item Received Date">
-						</div>
-					</div>
-					<div class="form-group col-md-6">
-						<label for="Quantity" class="col-sm-3 control-label " style="color:dodgerblue">Item Received Condition</label>
-						<div class="col-sm-9">
-							<select id="ItemReceivedOK" name="ItemReceivedOK" class="form-control">
-								<option value="">--Select--</option>
-								<option value="Ok">Ok</option>
-								<option value="NotOK">Not Ok</option>
-							</select>
-						</div>
-					</div>
-				</div>
-				<div class="row">
-					<div class="form-group col-md-6">
-						<label for="remark" class="col-sm-3 control-label" style="color:dodgerblue">Item Received Comments</label>
-						<div class="col-sm-6">
-							<input type="text" name="ItemReceivedComment" id="ItemReceivedComment" placeholder="Item Received Comment" class="form-control">
-						</div>
-					</div>
-					<div class="form-group col-md-6">
-						<label for="email" class="col-sm-3 control-label required" style="color: dodgerblue">Vendor Name</label>
-						<div class="col-sm-6">
-							<select class="form-control" id="Vendor" name="Vendor"></select>
-						</div>
-					</div>
-				</div>
-				<div class="row">
-					<div class="form-group col-md-6">
-						<label for="remark" class="col-sm-3 control-label required" style="color:dodgerblue">Challan Number</label>
-						<div class="col-sm-6">
-							<input type="text" name="ItemReceivedChallanNo" id="ItemReceivedChallanNo" placeholder="Challan Number" class="form-control">
-						</div>
-					</div>
-					<div class="form-group col-md-6">
-						&nbsp;
-					</div>
-				</div>
-				<div class="row">
-					<div class="form-group col-md-12 text-center">
-						<input type="button" id="btnReceivedSave" name="btnReceivedSave" value="Save Item Received" onclick="SaveItemReceivedData();" />
-						<input type="hidden" id="PRNumberHiddenItemReceived" name="PRNumberHiddenItemReceived" />
-					</div>
+        <!-- ================= PR Details ================= -->
+        <div class="ui-card ui-narrow-fields">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-list-alt"></span>Requisition Details</div>
 
-				</div>
-			</div>*@
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="PRDate" class="form-label required">PR Date</label>
+                        <input type="text" id="PRDate" name="PRDate" autocomplete="off" readonly="readonly" class="form-control" placeholder="Select Date" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="ItemDropdown" class="form-label required">Item</label>
+                        <select class="form-control" id="ItemDropdown" name="ItemDropdown"></select>
+                    </div>
+                </div>
+            </div>
 
-		<div class="row">
-			<div class="form-group col-md-12">
-				<table id="ItemReceivedTable" name="ItemReceivedTable" class="table table-bordered table-condensed table-striped">
-					<thead>
-						<tr style="background-color:lightblue">
-							<th>Challan No</th>
-							<th>Received Date</th>
-							<th>Condition</th>
-							<th>Comments</th>
-							<th>Vendor</th>
-							<th><input type="Button" id="btnAddItem" name="btnAddItem" onclick="ItemReceivedAddToTable()" value="Add Challan" /></th>
-						</tr>
-					</thead>
-					<tbody>
-					</tbody>
-				</table>
-			</div>
-		</div>
-		<div class="row">
-			<div class="form-group col-md-12 text-center">
-				<input type="button" id="btnReceivedSave" name="btnReceivedSave" value="Save Item Received" onclick="SaveItemReceivedData();" />
-			</div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="ProjectRefDropdown" class="form-label required">Project Name</label>
+                        <div class="input-group">
+                            <select class="form-control" id="ProjectRefDropdown" name="ProjectRefDropdown"></select>
+                            <span class="input-group-btn">
+                                <button class="btn btn-default" type="button" onclick="GetPRs('new');" title="List PRs for this Project">
+                                    <span class="glyphicon glyphicon-th-list"></span>
+                                </button>
+                                <button class="btn btn-default" type="button" onclick="ExportPRsForProject();" title="Export PRs for Project to Excel">
+                                    <span class="glyphicon glyphicon-save"></span>
+                                </button>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="NewItem" class="form-label">New Item</label>
+                        <input type="text" id="NewItem" placeholder="New Item" class="form-control" name="NewItem">
+                    </div>
+                </div>
+            </div>
 
-		</div>
-		<div id="ItemReceivedErrorMessage">
-		</div>
-	</form>
-	<hr />
-	<form class="form-horizontal" role="form" id="POForm" name="POForm">
-		<div class="row">
-			<div class="form-group col-md-6">
-				<label for="remark" class="col-sm-3 control-label">Quick PO for this PR Only</label>
-				<a id="ExpandQuickPOLink" name="ExpandQuickPOLink" href="#" onclick="ToggleQuickPOSection();">Expand/Collapse PO Section</a>
-			</div>
-			<div class="form-group col-md-6 pull-left">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="ItemSize" class="form-label required">Size</label>
+                        <input type="text" id="ItemSize" placeholder="Size" class="form-control" name="ItemSize">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="Specs" class="form-label required">Spec/MOC</label>
+                        <input type="text" id="Specs" name="Specs" placeholder="Specs/MOC" class="form-control">
+                    </div>
+                </div>
+            </div>
 
-			</div>
-		</div>
-		<div id="QuickPOSection" name="QuickPOSection">
-			<div class="row">
-				<div class="form-group col-md-6">
-					<label for="remark" class="col-sm-3 control-label required"><i>Rate</i></label>
-					<div class="col-sm-6">
-						<input type="number" name="Rate" id="Rate" placeholder="Rate" class="form-control">
-					</div>
-				</div>
-				<div class="form-group col-md-6 pull-left">
-					<label for="PO Qty" class="col-sm-3 control-label"><i>PO Qty</i></label>
-					<div class="col-sm-6">
-						<input type="number" name="POQty" id="POQty" placeholder="PO Qty" class="form-control">
-					</div>
-				</div>
-			</div>
-			<div class="row">
-				<div class="form-group col-md-6">
-					<label for="email" class="col-sm-3 control-label "><i>Vendor Name</i></label>
-					<div class="col-sm-6">
-						<select class="form-control" id="VendorForPO" name="VendorForPO"></select>
-					</div>
-				</div>
-				<div class="form-group col-md-6 pull-left">
-					<label for="PO Remarks" class="col-sm-3 control-label"><i>PO Remarks</i></label>
-					<div class="col-sm-6">
-						<input type="text" name="PORemarks" id="PORemarks" placeholder="PO Remarks" class="form-control">
-					</div>
-				</div>
-			</div>
-			<div class="row">
-				<div class="form-group col-md-12">
-					<label for="email" class="col-sm-3 control-label">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</label>
-					<input type="submit" id="btnPOSave" name="btnPOSave" value="Save PO" onclick="SaveQuickPOData();" />
-					<input type="hidden" id="PRNumberHidden" name="PRNumberHidden" />
-					<div id="messagePO" name="messagePO" class="success"></div>
-				</div>
-			</div>
-		</div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="Quantity" class="form-label required">Quantity Ordered</label>
+                        <input type="number" min="0" value="0" step=".01" id="Quantity" name="Quantity" placeholder="Quantity Ordered" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="DateRequired" class="form-label required">Date Required</label>
+                        <input type="text" autocomplete="off" readonly="readonly" id="DateRequired" name="DateRequired" class="form-control" placeholder="Select Date" />
+                    </div>
+                </div>
+            </div>
 
-	</form>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="Unit" class="form-label required">Unit of Measurement</label>
+                        <select id="Unit" name="Unit" class="form-control">
+                            <option value="">--Select--</option>
+                            <option value="Kgs">Kgs</option>
+                            <option value="Nos">Nos</option>
+                            <option value="Dozen">Dozen</option>
+                            <option value="Metres">Metres</option>
+                            <option value="Feet">Feet</option>
+                            <option value="Litres">Litres</option>
+                            <option value="Sets">Sets</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="OldProjects" class="form-label">Old Projects</label>
+                        <div class="input-group">
+                            <select class="form-control" id="OldProjects" name="OldProjects"></select>
+                            <span class="input-group-btn">
+                                <button class="btn btn-default" type="button" onclick="GetPRs('old');" title="Display Old PRs for Project">
+                                    <span class="glyphicon glyphicon-th-list"></span>
+                                </button>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="Remark" class="form-label">Remark</label>
+                        <input type="text" name="Remark" id="Remark" placeholder="Remark" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="Drawing" class="form-label">Drawing</label>
+                        <input type="text" name="Drawing" id="Drawing" placeholder="Drawing" class="form-control">
+                    </div>
+                </div>
+            </div>
 
+            <!-- ================= Save (kept in this card, alongside the fields it saves) ================= -->
+            <div class="row ui-card-footer">
+                <div class="col-md-6">
+                    <div id="message" name="message"></div>
+                </div>
+                <div class="col-md-6 btn-toolbar-right">
+                    <button type="submit" id="btnSave" name="btnSave" class="btn btn-primary" onclick="return SaveData();">
+                        <span class="glyphicon glyphicon-floppy-disk"></span>Save PR
+                    </button>
+                </div>
+            </div>
+            <div id="errormessage"></div>
+        </div>
+    </form> <!-- /PRForm -->
 
-	<div class="row">
-		<div class="form-group col-md-12">
-			<table id="PRTable" name="PRTable" class="table table-bordered table-condensed table-striped">
-				<thead>
-					<tr style="background-color:lightblue">
-						<th>PR #</th>
-                        <th>                            
-                            <select id="ItemDropdownPRTable" class="form-control form-control-sm" disabled>
+    <!-- ================= Item Received ================= -->
+    <form role="form" id="ItemReceivedForm" name="ItemReceivedForm">
+        <div class="ui-card">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-inbox"></span>Item Received</div>
+
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label class="form-label mb-0">All items have been received?</label>
+                    <label class="radio-inline"><input type="radio" name="IsAllItemReceived" value="yes" checked /> Yes</label>
+                    <label class="radio-inline"><input type="radio" name="IsAllItemReceived" value="no" /> No</label>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table id="ItemReceivedTable" name="ItemReceivedTable" class="table table-bordered table-condensed table-striped ui-table">
+                    <thead>
+                        <tr>
+                            <th>Challan No</th>
+                            <th>Received Date</th>
+                            <th>Condition</th>
+                            <th>Comments</th>
+                            <th>Vendor</th>
+                            <th>
+                                <button type="button" class="btn btn-success btn-xs" id="btnAddItem" name="btnAddItem" onclick="ItemReceivedAddToTable()">
+                                    <span class="glyphicon glyphicon-plus"></span>Add Challan
+                                </button>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-md-12 text-center">
+                    <button type="button" id="btnReceivedSave" name="btnReceivedSave" class="btn btn-primary" onclick="SaveItemReceivedData();">
+                        <span class="glyphicon glyphicon-floppy-disk"></span>Save Item Received
+                    </button>
+                </div>
+            </div>
+            <div id="ItemReceivedErrorMessage"></div>
+        </div>
+    </form> <!-- /ItemReceivedForm -->
+
+    <!-- ================= Quick PO ================= -->
+    <form role="form" id="POForm" name="POForm">
+        <div class="ui-card ui-narrow-fields">
+            <div class="ui-card-title">
+                <span class="glyphicon glyphicon-shopping-cart"></span>Quick PO for this PR Only
+                &nbsp;
+                <!-- href="javascript:void(0);" (not "#") so clicking this doesn't jump the page to
+                     the top and lose your place - just toggles the section below. -->
+                <a id="ExpandQuickPOLink" name="ExpandQuickPOLink" href="javascript:void(0);" class="ui-toggle-link" onclick="ToggleQuickPOSection();">
+                    <span class="glyphicon glyphicon-resize-vertical"></span>Expand / Collapse
+                </a>
+                &nbsp;&nbsp;&nbsp;
+                <span class="ui-inline-label" id="QuickPOPRNoDisplay"></span>
+            </div>
+
+            <div id="QuickPOSection" name="QuickPOSection">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="Rate" class="form-label required">Rate</label>
+                            <input type="number" name="Rate" id="Rate" placeholder="Rate" class="form-control">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="POQty" class="form-label">PO Qty</label>
+                            <input type="number" name="POQty" id="POQty" placeholder="PO Qty" class="form-control">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="VendorForPO" class="form-label">Vendor Name</label>
+                            <select class="form-control" id="VendorForPO" name="VendorForPO"></select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="PORemarks" class="form-label">PO Remarks</label>
+                            <input type="text" name="PORemarks" id="PORemarks" placeholder="PO Remarks" class="form-control">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div id="messagePO" name="messagePO"></div>
+                    </div>
+                    <div class="col-md-6 btn-toolbar-right">
+                        <button type="submit" id="btnPOSave" name="btnPOSave" class="btn btn-primary" onclick="SaveQuickPOData();">
+                            <span class="glyphicon glyphicon-floppy-disk"></span>Save PO
+                        </button>
+                        <input type="hidden" id="PRNumberHidden" name="PRNumberHidden" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form> <!-- /POForm -->
+
+    <!-- ================= PRs for Project ================= -->
+    <div class="ui-card">
+        <div class="ui-card-title ui-card-title-with-filter">
+            <span><span class="glyphicon glyphicon-th-list"></span>Purchase Requisitions for Project</span>
+            <select id="ColourFilterPRTable" class="form-control ui-color-filter-select" title="Filter the table below by row colour">
+                <option value="">All Colours</option>
+                <option value="yellow" style="background-color:#fff59d;">Yellow</option>
+                <option value="green" style="background-color:#c8f7c8;">Green</option>
+                <option value="white" style="background-color:#ffffff;">White</option>
+            </select>
+        </div>
+        <div class="table-responsive">
+            <table id="PRTable" name="PRTable" class="table table-bordered table-condensed table-striped ui-table">
+                <thead>
+                    <tr>
+                        <th>PR #</th>
+                        <th>
+                            <select id="ItemDropdownPRTable" class="form-control" disabled>
                                 <option value="">-- Select Item --</option>
                             </select>
                         </th>
-						<th style='width:15%;'>Size</th>
+                        <th style="width:15%;">Size</th>
                         <th>
-                            <select id="MOCDropdownPRTable" class="form-control form-control-sm" disabled>
+                            <select id="MOCDropdownPRTable" class="form-control" disabled>
                                 <option value="">-- Select MOC --</option>
                             </select>
                         </th>
-						<th>Qty</th>
-						<th>Unit</th>
-						<th style='width:10%;'>PR Date</th>
-						<th style='width:10%;'>Reqd Date</th>
-						<th>Remarks</th>
-						<th>All Item Recd</th>
-					</tr>
-				</thead>
-				<tbody>
-				</tbody>
-			</table>
-
-		</div>
-	</div>
+                        <th>Qty</th>
+                        <th>Unit</th>
+                        <th style="width:10%;">
+                            PR Date
+                            <span class="ui-sort-arrows">
+                                <a href="javascript:void(0);" onclick="sortPRTableByDate(6,'asc');" title="Sort by PR Date, oldest first"><span class="glyphicon glyphicon-triangle-top"></span></a>
+                                <a href="javascript:void(0);" onclick="sortPRTableByDate(6,'desc');" title="Sort by PR Date, newest first"><span class="glyphicon glyphicon-triangle-bottom"></span></a>
+                            </span>
+                        </th>
+                        <th style="width:10%;">
+                            Reqd Date
+                            <span class="ui-sort-arrows">
+                                <a href="javascript:void(0);" onclick="sortPRTableByDate(7,'asc');" title="Sort by Date Required, oldest first"><span class="glyphicon glyphicon-triangle-top"></span></a>
+                                <a href="javascript:void(0);" onclick="sortPRTableByDate(7,'desc');" title="Sort by Date Required, newest first"><span class="glyphicon glyphicon-triangle-bottom"></span></a>
+                            </span>
+                        </th>
+                        <th>Remarks</th>
+                        <th>All Item Recd</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+    </div>
 
 </div> <!-- ./container -->

@@ -1,0 +1,420 @@
+/* ==========================================================================
+   ModernUI.css
+   ------------------------------------------------------------------------
+   Opt-in visual polish for CRUD pages, layered on top of Bootstrap 3
+   (Content/bootstrap.css) without touching Purchase.css or Site.css.
+   Everything here is scoped under the ".ui-modern" wrapper class, so pages
+   that don't add that class to a container are completely unaffected.
+
+   Usage: wrap a page's content in <div class="ui-modern"> ... </div>,
+   group related fields in a ".ui-card", and give each card a ".ui-card-title".
+   ========================================================================== */
+
+.ui-modern {
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    color: #33414e;
+}
+
+/* -- Layout / spacing utilities (Bootstrap 3 doesn't ship these) --------- */
+.ui-modern .mt-2 { margin-top: 8px !important; }
+.ui-modern .mt-3 { margin-top: 16px !important; }
+.ui-modern .mt-4 { margin-top: 24px !important; }
+.ui-modern .mb-0 { margin-bottom: 0 !important; }
+.ui-modern .mb-2 { margin-bottom: 8px !important; }
+.ui-modern .mb-3 { margin-bottom: 16px !important; }
+.ui-modern .mb-4 { margin-bottom: 24px !important; }
+.ui-modern .d-none { display: none !important; }
+.ui-modern .text-right { text-align: right; }
+
+/* Site.css caps every input/select/textarea at 280px; inside a modernized
+   form we want fields to fill their grid column instead. */
+.ui-modern .form-control {
+    max-width: 100%;
+}
+
+/* -- Page heading ---------------------------------------------------------- */
+.ui-modern .ui-page-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1f4e79;
+    margin: 0 0 20px;
+}
+
+    .ui-modern .ui-page-title .glyphicon {
+        margin-right: 8px;
+        font-size: 17px;
+    }
+
+/* -- Card container ---------------------------------------------------------- */
+.ui-modern .ui-card {
+    background: #fff;
+    border: 1px solid #e6e9ed;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    padding: 22px 24px;
+    margin-bottom: 22px;
+}
+
+.ui-modern .ui-card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1f4e79;
+    margin: -2px 0 18px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eef1f5;
+}
+
+    .ui-modern .ui-card-title .glyphicon {
+        margin-right: 6px;
+        font-size: 13px;
+    }
+
+/* -- Form fields --------------------------------------------------------------- */
+.ui-modern .form-group {
+    margin-bottom: 16px;
+}
+
+.ui-modern .form-label {
+    font-weight: 600;
+    font-size: 13px;
+    color: #46525e;
+    margin-bottom: 5px;
+    display: inline-block;
+}
+
+.ui-modern label.required:after,
+.ui-modern .form-label.required:after {
+    content: " *";
+    color: #d9534f;
+}
+
+.ui-modern .form-control {
+    border-radius: 6px;
+    border: 1px solid #d5dbe3;
+    height: 38px;
+    box-shadow: none;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+    .ui-modern .form-control:focus {
+        border-color: #5b9bf7;
+        box-shadow: 0 0 0 3px rgba(91,155,247,0.15);
+    }
+
+/* Readonly fields (the two datepicker-bound date boxes) - override Bootstrap's default
+   grey (.form-control[readonly] { background-color: #eeeeee; } in bootstrap.css) with a
+   light blue that matches the datepicker popup's palette instead. */
+.ui-modern .form-control[readonly] {
+    background-color: #eef5fb;
+    color: #33414e;
+}
+
+/* Search input with an attached icon button (autocomplete + lookup) */
+.ui-modern .input-group-btn .btn {
+    height: 38px;
+    border-radius: 0 6px 6px 0;
+}
+
+.ui-modern .input-group .form-control {
+    border-radius: 6px 0 0 6px;
+}
+
+/* -- Buttons ---------------------------------------------------------------------- */
+.ui-modern .btn {
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 13.5px;
+    padding: 9px 22px;
+    letter-spacing: .2px;
+}
+
+.ui-modern .btn .glyphicon {
+    margin-right: 6px;
+    font-size: 12px;
+}
+
+.ui-modern .btn-toolbar-right {
+    text-align: right;
+}
+
+@media (max-width: 767px) {
+    .ui-modern .btn-toolbar-right {
+        text-align: left;
+        margin-top: 10px;
+    }
+}
+
+/* -- Validation / feedback messaging ------------------------------------------------ */
+.ui-modern #errormessage,
+.ui-modern .ui-error {
+    background: #fdecea;
+    border: 1px solid #f5c2c0;
+    color: #a12622;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-top: 18px;
+    font-size: 13.5px;
+    line-height: 1.5;
+}
+
+    .ui-modern #errormessage:empty,
+    .ui-modern .ui-error:empty {
+        display: none;
+        padding: 0;
+        border: none;
+        margin: 0;
+    }
+
+.ui-modern #message,
+.ui-modern .ui-success {
+    background: #eafaf1;
+    border: 1px solid #b7ebc6;
+    color: #1e7e34;
+    border-radius: 6px;
+    padding: 10px 16px;
+    font-size: 13.5px;
+}
+
+    .ui-modern #message:empty,
+    .ui-modern .ui-success:empty {
+        display: none;
+        padding: 0;
+        border: none;
+        margin: 0;
+    }
+
+/* -- Section toggle links (e.g. a collapsible "Quick PO" block) --------------------- */
+.ui-modern .ui-toggle-link {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1f6fd1;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+    .ui-modern .ui-toggle-link:hover,
+    .ui-modern .ui-toggle-link:focus {
+        text-decoration: underline;
+        color: #14549e;
+    }
+
+    .ui-modern .ui-toggle-link .glyphicon {
+        font-size: 10px;
+        margin-right: 4px;
+    }
+
+/* -- Small badge for an inline reference value (e.g. the mapped PO Number) --------- */
+.ui-modern .ui-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    background: #e6f6ec;
+    color: #1e7e34;
+    border: 1px solid #b7ebc6;
+    font-weight: 600;
+    font-size: 12.5px;
+}
+
+    .ui-modern .ui-badge:empty {
+        display: none;
+    }
+
+/* -- Narrow input, e.g. a short admin/approval code, or a compact reference number -- */
+.ui-modern .ui-input-sm {
+    max-width: 130px;
+}
+
+.ui-modern .ui-input-md {
+    max-width: 300px;
+}
+
+/* -- Cap fields at 55% of their grid column width, e.g. Requisition Details / Quick PO,
+      so text boxes don't stretch edge-to-edge on wide screens -------------------------
+      Only the .form-group's own direct field is capped here - a field that's paired with
+      buttons (Project Name / Old Projects, wrapped in .input-group) is deliberately left
+      alone: capping the inner <select> while its .input-group-btn sibling cell stayed full
+      size left a visible gap between the dropdown and its buttons. The .input-group rule
+      below caps the whole assembly together instead, so the buttons stay attached. */
+.ui-modern .ui-narrow-fields .form-group > .form-control {
+    max-width: 55%;
+}
+
+.ui-modern .ui-narrow-fields .form-group > .input-group {
+    max-width: 55%;
+}
+
+/* -- Footer row appended to the bottom of a card (e.g. Save button + status message),
+      so it reads as part of that card instead of needing its own card -------------------- */
+.ui-modern .ui-card-footer {
+    border-top: 1px solid #eef1f5;
+    margin-top: 6px;
+    padding-top: 16px;
+}
+
+/* -- Softer red for a destructive-but-routine action (e.g. Delete PR) - a light pastel red
+      instead of Bootstrap's alarming brick-red .btn-danger; dark text for contrast on the
+      light background ---------------------------------------------------------------------- */
+.ui-modern #RemovePRButton {
+    background-color: #f6d3d2;
+    border-color: #ecb7b5;
+    color: #8a3230;
+}
+
+    .ui-modern #RemovePRButton:hover,
+    .ui-modern #RemovePRButton:focus {
+        background-color: #f0bfbd;
+        border-color: #e5a7a5;
+        color: #8a3230;
+    }
+
+/* -- Card title with a filter control docked to its right, e.g. the colour filter on
+      "Purchase Requisitions for Project" ---------------------------------------------- */
+.ui-modern .ui-card-title-with-filter {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+    .ui-modern .ui-card-title-with-filter .ui-color-filter-select {
+        margin-left: auto;
+        width: auto;
+        max-width: 110px;
+        display: inline-block;
+    }
+
+/* -- Inline label next to a value (e.g. "Linked PO:"), darker/larger than .text-muted */
+.ui-modern .ui-inline-label {
+    color: #33414e;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+/* -- Tables --------------------------------------------------------------------------- */
+.ui-modern .ui-table {
+    margin-bottom: 0;
+}
+
+    .ui-modern .ui-table thead th {
+        background: #eef3f9;
+        color: #1f4e79;
+        font-weight: 600;
+        font-size: 12.5px;
+        border-bottom: 2px solid #d5e2f0;
+        vertical-align: middle;
+    }
+
+    .ui-modern .ui-table td {
+        font-size: 13px;
+        vertical-align: middle;
+    }
+
+    .ui-modern .ui-table .form-control {
+        height: 32px;
+        font-size: 12.5px;
+    }
+
+/* -- Asc/desc sort arrows next to a sortable column header (e.g. PR Date / Reqd Date) ------ */
+.ui-modern .ui-sort-arrows {
+    display: inline-flex;
+    flex-direction: column;
+    vertical-align: middle;
+    margin-left: 4px;
+    line-height: 0;
+}
+
+    .ui-modern .ui-sort-arrows a {
+        color: #9aa8b5;
+        font-size: 9px;
+    }
+
+        .ui-modern .ui-sort-arrows a:hover,
+        .ui-modern .ui-sort-arrows a:focus {
+            color: #1f6fd1;
+        }
+
+/* -- De-emphasized row for sensitive/admin-only actions ------------------------------- */
+.ui-modern .ui-admin-row {
+    border-top: 1px dashed #e3e7ec;
+    margin-top: 16px;
+    padding-top: 14px;
+}
+
+    .ui-modern .ui-admin-row .ui-admin-label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: .4px;
+        color: #98a2ad;
+        font-weight: 600;
+        margin-bottom: 6px;
+        display: block;
+    }
+
+/* -- Responsive tweaks ------------------------------------------------------------- */
+@media (max-width: 767px) {
+    .ui-modern .ui-card {
+        padding: 16px;
+    }
+}
+
+/* -- jQuery UI datepicker popup ------------------------------------------------------
+   Not scoped under .ui-modern: jQuery UI appends #ui-datepicker-div directly to <body>,
+   as a sibling of the page container, not nested inside it. Its default theme (jQuery UI's
+   "smoothness"/base theme, loaded via jquery-ui-1.12.1.min.css) is light grey; switch it to
+   a muted, professional light blue instead. !important guards against theme rules that use
+   the same #ui-datepicker-div.ui-widget-content combination this relies on for specificity. */
+#ui-datepicker-div.ui-datepicker {
+    background: #eef5fb !important;
+    border: 1px solid #b9d7ea !important;
+    border-radius: 8px;
+    padding: 8px;
+    /* jQuery UI doesn't set its own z-index, so the popup only stacks as high as wherever it
+       happens to sit in DOM/positioning order - on this page that let the Project Name field's
+       <select> + buttons (an .input-group, which Bootstrap bumps to z-index:3 on focus) show
+       through the gap between the popup's header and its calendar grid. Force it above
+       everything. */
+    z-index: 99999 !important;
+}
+
+    /* Paint every structural piece of the popup explicitly, so there's no transparent row/cell
+       for page content underneath to show through - this is what let the Project Name field
+       bleed through between the header and the calendar grid. */
+    #ui-datepicker-div .ui-datepicker-header {
+        background: #dceaf6 !important;
+        border: none !important;
+        border-radius: 6px;
+        color: #274b6d !important;
+    }
+
+    #ui-datepicker-div .ui-datepicker-calendar {
+        background: #eef5fb !important;
+    }
+
+    #ui-datepicker-div .ui-datepicker-calendar thead,
+    #ui-datepicker-div .ui-datepicker-calendar tbody,
+    #ui-datepicker-div .ui-datepicker-calendar tr {
+        background: #eef5fb !important;
+    }
+
+    #ui-datepicker-div .ui-datepicker-calendar th {
+        background: #eef5fb !important;
+        color: #274b6d;
+    }
+
+    #ui-datepicker-div .ui-datepicker-calendar td {
+        background: #eef5fb !important;
+    }
+
+    #ui-datepicker-div .ui-datepicker-calendar td a.ui-state-default {
+        background: #ffffff !important;
+        border: 1px solid #d5e2f0 !important;
+        color: #33414e;
+        text-align: center;
+    }
+
+    #ui-datepicker-div .ui-datepicker-calendar td a.ui-state-active,
+    #ui-datepicker-div .ui-datepicker-calendar td a.ui-state-hover,
+    #ui-datepicker-div .ui-datepicker-calendar td.ui-datepicker-today a {
+        background: #3b6fa0 !important;
+        color: #fff !important;
+        border-color: #3b6fa0 !important;
+    }

@@ -80,13 +80,21 @@ namespace OrientalApplication.Controllers
         [HttpGet]
         public ActionResult PRGet(string PRNo)
         {
-            PurchaseRequisition po = _purchaseRequisitionRepository.GetPurchaseRequisition(PRNo);
-            
+            PurchaseRequisition purchaseRequisition = _purchaseRequisitionRepository.GetPurchaseRequisition(PRNo);
+
+            if (purchaseRequisition == null)
+            {
+                purchaseRequisition = new PurchaseRequisition();
+                string msg = "Error: " + "PR not found. Please enter valid PR number";
+                purchaseRequisition.Result = msg;
+                return Json(purchaseRequisition, JsonRequestBehavior.AllowGet);
+            }
+
             List<String> PONumberList = _purchaseRequisitionRepository.GetAllPOsForPR(PRNo);
             string PONumbers = string.Join(",", PONumberList);
-            po.AssociatedPONumbers = PONumbers;
+            purchaseRequisition.AssociatedPONumbers = PONumbers;
 
-            return Json(po, JsonRequestBehavior.AllowGet);
+            return Json(purchaseRequisition, JsonRequestBehavior.AllowGet);
         }
         public ActionResult GetPRs(string project)
         {
