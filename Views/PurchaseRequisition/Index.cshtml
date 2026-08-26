@@ -13,6 +13,23 @@
 
 <script type="text/javascript">
     var VendorList; var Id = 0;
+    // Item names for the Quick-add grid's per-row Item dropdown - captured from the same
+    // GetItemNames call that fills #ItemDropdown (single-PR edit mode) below.
+    var ItemNamesList = [];
+    var qaRowSeq = 0;
+
+    // Requisition Details has two mutually-exclusive modes:
+    //  - Quick-add (#QuickAddPRSection): the default, for entering several new PRs in a row.
+    //  - Edit (#SinglePREditSection): shown once an existing PR is loaded via the Load button.
+    function switchToQuickAddMode() {
+        $('#SinglePREditSection').hide();
+        $('#QuickAddPRSection').show();
+    }
+    function switchToEditMode() {
+        $('#QuickAddPRSection').hide();
+        $('#SinglePREditSection').show();
+    }
+
     function PrintPR() {
         if ($('#PRNo').val() == 'undefined' || $('#PRNo').val() == '') {
             alert('Please Enter a valid PR Number');
@@ -67,10 +84,75 @@
 			newRow.css('background-color', 'yellow');
         }
 		newRow.attr('data-rowcolour', rowColour);
+		// Tag the row with its PR No too, so a deleted PR's row can be picked out of this table
+		// directly (see RemovePR) instead of reloading the whole listing.
+		newRow.attr('data-prno', PRNumber);
 
 
 		// Append the new row to the table
 		$("#PRTable tbody").append(newRow);
+	}
+
+	// Removes a PR's row from #PRTable by PR No, if it's currently listed there - used by
+	// RemovePR (Admin Action) so a deleted PR doesn't stay visible in the listing below.
+	// Case/whitespace-insensitive since it's matching a typed Admin Action value against
+	// whatever GetPRs/PRSave originally rendered into the row.
+	function removePRRowFromTable(prNo) {
+		var target = $.trim(prNo).toUpperCase();
+		$("#PRTable tbody tr").filter(function () {
+			return $.trim($(this).attr('data-prno') || '').toUpperCase() === target;
+		}).remove();
+	}
+
+	// Rebuilds the Item/MOC filter dropdowns above #PRTable from whatever rows are actually in
+	// the table right now, so they only ever offer values found in the project currently listed
+	// there - never the full app-wide item/MOC list. Called after GetPRs() populates the table,
+	// and again whenever a row is added directly (SaveData, QuickAddSaveRow) without going
+	// through GetPRs, so a freshly-saved PR's Item/MOC shows up immediately too.
+	// Preserves the current selection if it's still one of the available values.
+	function refreshPRTableFilterDropdowns() {
+		var uniqueItems = [];
+		var uniqueMOC = [];
+
+		$("#PRTable tbody tr").each(function () {
+			var row = $(this);
+			var itemVal = row.find("td:eq(1)").text().trim();
+			var mocVal = row.find("td:eq(3)").text().trim();
+
+			if (itemVal !== '' && $.inArray(itemVal, uniqueItems) === -1) {
+				uniqueItems.push(itemVal);
+			}
+			if (mocVal !== '' && $.inArray(mocVal, uniqueMOC) === -1) {
+				uniqueMOC.push(mocVal);
+			}
+		});
+		uniqueItems.sort();
+		uniqueMOC.sort();
+
+		var previousItem = $("#ItemDropdownPRTable").val();
+		var previousMOC = $("#MOCDropdownPRTable").val();
+
+		$("#ItemDropdownPRTable").empty().append('<option value="">-- Select Item --</option>');
+		$.each(uniqueItems, function (i, item) {
+			$("#ItemDropdownPRTable").append('<option value="' + item + '">' + item + '</option>');
+		});
+		$("#ItemDropdownPRTable").prop("disabled", uniqueItems.length === 0);
+		if ($.inArray(previousItem, uniqueItems) !== -1) {
+			$("#ItemDropdownPRTable").val(previousItem);
+		}
+
+		$("#MOCDropdownPRTable").empty().append('<option value="">-- Select MOC --</option>');
+		$.each(uniqueMOC, function (i, item) {
+			$("#MOCDropdownPRTable").append('<option value="' + item + '">' + item + '</option>');
+		});
+		$("#MOCDropdownPRTable").prop("disabled", uniqueMOC.length === 0);
+		if ($.inArray(previousMOC, uniqueMOC) !== -1) {
+			$("#MOCDropdownPRTable").val(previousMOC);
+		}
+
+		// Re-apply the Colour Filter (Item/MOC dropdowns above were just rebuilt, but Colour
+		// Filter isn't - honour it if one was already selected).
+		applyPRTableFilters();
 	}
 
 	// Combines the Item, MOC and Colour filters above #PRTable into a single pass, so all three
@@ -201,7 +283,9 @@
                    for (var i = 0; i < data.length; i++) {
                        s += '<option value="' + data[i] + '">' + data[i] + '</option>';
                    }
-                   $("#ProjectRefDropdown").html(s);
+                   // Same project list feeds the Requisition Details dropdown and the standalone
+                   // one next to "Purchase Requisitions for Project" below.
+                   $("#ProjectRefDropdown, #ProjectRefDropdownList").html(s);
                }
           });
 
@@ -222,11 +306,13 @@
                type: "GET",
                url: '@Url.Action("GetItemNames","PurchaseRequisition")',
                success: function (data) {
+                   ItemNamesList = data;
                    var s = '<option value="">--Select--</option>';
                    for (var i = 0; i < data.length; i++) {
                        s += '<option value="' + data[i] + '">' + data[i] + '</option>';
                    }
                    $("#ItemDropdown").html(s);
+                   QuickAddRefreshItemOptions();
              }
          });
 
@@ -253,6 +339,10 @@
         $('#POAdminCode').val('');
         $('#PRNo').on('input', updateLoadButtonVisibility);
         updateLoadButtonVisibility();
+
+        // Default screen state: ready to quick-add new PR(s), not editing an existing one.
+        switchToQuickAddMode();
+        QuickAddEnsureAtLeastOneRow();
     });
 
 </script>
@@ -308,6 +398,7 @@
         $("#ItemDropdownPRTable").empty().append('<option value="">-- Select Item --</option>').prop("disabled", true);
         $("#MOCDropdownPRTable").empty().append('<option value="">-- Select MOC --</option>').prop("disabled", true);
         $('#ColourFilterPRTable').val('');
+        $('#ProjectRefDropdownList').val('');
 
         // Quick PO section
         $('#Rate').val('');
@@ -318,6 +409,9 @@
         $('#QuickPOSection').hide();
 
         $('#btnSave').prop('disabled', true);
+
+        // Quick-add grid
+        QuickAddResetGrid();
     }
 
     function AddData() {
@@ -330,12 +424,14 @@
         // and enable Save.
         $('#PRNo').prop('disabled', true);
         $('#btnSave').prop('disabled', false);
+        switchToQuickAddMode();
     }
 
     // "Cancel"/Reset: undo whatever was on screen (including a pending "New PR") and bring the
     // page back to exactly the state it was in when it first loaded - no actual page reload.
     function CancelToFreshScreen() {
         ClearAllFieldsAndTables();
+        switchToQuickAddMode();
     }
     function SaveData() {
         debugger;
@@ -359,6 +455,7 @@
                 else if (data != null && data.PRNumber !== 'undefined' && data.PRNumber != '') {
                     if (data.IsNew == 'true') {
                         PRAddToTable(data.PRNo, data.ItemDropdown, data.Quantity, data.ItemSize, data.Unit, data.Specs, data.PRDate, data.DateRequired, data.Remark, data.IsAllItemReceived,'');
+                        refreshPRTableFilterDropdowns();
                     }
                      $('#PRNo').val(data.PRNo);
                      updateLoadButtonVisibility();
@@ -409,6 +506,7 @@
                     alert(data && data.Result ? data.Result : 'Enter a valid PR number');
                     return;
                 }
+                switchToEditMode();
                 $("#PRDate").val(data.PRDate);
                 $("#PRNo").val(data.PRNo);
                 updateLoadButtonVisibility();
@@ -578,6 +676,11 @@
         if (projectType == 'old') {
             projectname = $("#OldProjects").val();
         }
+        else if (projectType == 'list') {
+            // Dropdown next to the "Purchase Requisitions for Project" table itself, so browsing
+            // a project's PRs doesn't require touching the Requisition Details card above.
+            projectname = $("#ProjectRefDropdownList").val();
+        }
         else {
             projectname = $("#ProjectRefDropdown").val();
         }
@@ -591,47 +694,20 @@
                      alert("No PR Records");
                  }
                  else {
-                     var uniqueItems = [];
-                     var uniqueMOC = [];
-
                      for (var i = 0; i < data.length; i++) {
                          PRAddToTable(data[i].PRNo, data[i].ItemDropdown, data[i].Quantity, data[i].ItemSize, data[i].Unit, data[i].Specs, data[i].PRDate, data[i].DateRequired, data[i].Remark, data[i].IsAllItemReceived, data[i].AssignedToPO);
-
-                         if ($.inArray(data[i].ItemDropdown, uniqueItems) === -1) {
-                             uniqueItems.push(data[i].ItemDropdown);
-                         }
-
-                         if ($.inArray(data[i].Specs, uniqueMOC) === -1) {
-                             uniqueMOC.push(data[i].Specs);
-                         }
-
                      }
-                     uniqueItems.sort();
-                     uniqueMOC.sort();
-
-                     // Populate the item dropdown in header
-                     $.each(uniqueItems, function (i, item) {
-                         $("#ItemDropdownPRTable").append('<option value="' + item + '">' + item + '</option>');
-                     });
-                     $("#ItemDropdownPRTable").prop("disabled", false);
-
-                     // Populate the MOC dropdown in header
-                     $.each(uniqueMOC, function (i, item) {
-                         $("#MOCDropdownPRTable").append('<option value="' + item + '">' + item + '</option>');
-                     });
-                     $("#MOCDropdownPRTable").prop("disabled", false);
-
-                     // Re-apply the Colour Filter (Item/MOC dropdowns above were just rebuilt
-                     // blank, but Colour Filter isn't - honour it if one was already selected).
-                     applyPRTableFilters();
+                     // Item/MOC dropdowns only ever offer values actually present in this
+                     // project's PRs - never the full app-wide item/MOC list.
+                     refreshPRTableFilterDropdowns();
                  }
              }
          });
     }
 
-    function ExportPRsForProject() {
+    function ExportPRsForProject(source) {
         var url = '@Url.Action("WritePRsForProjectItemToExcel", "Report")';
-        var projectname = $("#ProjectRefDropdown").val();
+        var projectname = (source == 'list') ? $("#ProjectRefDropdownList").val() : $("#ProjectRefDropdown").val();
 
         // Replace '&' with '||' in the project name
         var modifiedProjectName = projectname.replace(/&/g, '||');
@@ -644,7 +720,9 @@
         if (code == '') {
             alert("Please enter Admin Code"); return false;
         }
-        var prNumber = $('#PRNo').val();
+        // Deliberately its own field, separate from the "Purchase Requisition No" textbox up top -
+        // Delete PR always acts on #DeletePRNo, never on whatever happens to be loaded above.
+        var prNumber = $('#DeletePRNo').val();
 
         if (prNumber == '') {
             alert("Please enter PR No to Delete"); return false;
@@ -658,7 +736,7 @@
          $.ajax({
              type: "GET",
              url: '@Url.Action("RemovePR","PurchaseRequisition")',
-             data: { prNumber: $('#PRNo').val(), poAdminCode: $('#POAdminCode').val() },
+             data: { prNumber: prNumber, poAdminCode: code },
              success: function (data) {
                  if (data.includes('Error') == true) {
                      alert(data);
@@ -666,6 +744,10 @@
                  else {
                      alert('PR Record Successfully Deleted');
                      ClearScreen();
+                     // If the deleted PR is currently shown in the "Purchase Requisitions for
+                     // Project" table below, remove its row too instead of leaving it listed.
+                     removePRRowFromTable(prNumber);
+                     refreshPRTableFilterDropdowns();
                  }
              }
          });
@@ -673,6 +755,7 @@
     }
 
     function ClearScreen() {
+        $("#DeletePRNo").val('');
         $("#PRDate").val('');
         $("#PRNo").val('');
         updateLoadButtonVisibility();
@@ -934,6 +1017,165 @@
         return isValid;
     }
 
+    // ================= Quick-add grid (multiple new PRs, one row per item) =================
+    // PR Date / Project Name / User Code are shared across every row here - each row only holds
+    // what actually varies per PR: Item, Size, Spec/MOC, Qty, Unit, Date Required, Remark, Drawing.
+    // Each row saves independently via its own Save button, hitting the same PRSave endpoint
+    // SaveData() uses for a single PR.
+
+    function QuickAddBuildItemOptionsHtml(selected) {
+        var s = '<option value="">--Select--</option>';
+        for (var i = 0; i < ItemNamesList.length; i++) {
+            var isSelected = (ItemNamesList[i] === selected) ? ' selected' : '';
+            s += '<option value="' + ItemNamesList[i] + '"' + isSelected + '>' + ItemNamesList[i] + '</option>';
+        }
+        return s;
+    }
+
+    // Re-renders the Item <select> in every currently-rendered row once ItemNamesList arrives
+    // (GetItemNames resolves after the grid's first blank row is usually already on screen),
+    // keeping whatever that row already had selected.
+    function QuickAddRefreshItemOptions() {
+        $('#QuickAddPRTable tbody tr').each(function () {
+            var select = $(this).find('.QAItem');
+            select.html(QuickAddBuildItemOptionsHtml(select.val()));
+        });
+    }
+
+    function QuickAddNewRow() {
+        qaRowSeq++;
+        var newRow = $('<tr>').attr('data-qarow', qaRowSeq).html(
+            '<td><select class="form-control QAItem">' + QuickAddBuildItemOptionsHtml('') + '</select></td>' +
+            '<td><input type="text" class="form-control QANewItem" placeholder="New Item"></td>' +
+            '<td><input type="text" class="form-control QASize" placeholder="Size"></td>' +
+            '<td><input type="text" class="form-control QASpecs" placeholder="Spec/MOC"></td>' +
+            '<td><input type="number" min="0" step=".01" class="form-control QAQuantity" placeholder="Qty"></td>' +
+            '<td><select class="form-control QAUnit">' +
+                '<option value="">--Select--</option>' +
+                '<option value="Kgs">Kgs</option>' +
+                '<option value="Nos">Nos</option>' +
+                '<option value="Dozen">Dozen</option>' +
+                '<option value="Metres">Metres</option>' +
+                '<option value="Feet">Feet</option>' +
+                '<option value="Litres">Litres</option>' +
+                '<option value="Sets">Sets</option>' +
+            '</select></td>' +
+            '<td><input type="text" autocomplete="off" readonly="readonly" class="form-control QADateRequired" placeholder="Select Date"></td>' +
+            '<td><input type="text" class="form-control QARemark" placeholder="Remark"></td>' +
+            '<td><input type="text" class="form-control QADrawing" placeholder="Drawing"></td>' +
+            '<td class="text-nowrap">' +
+                '<button type="button" class="btn btn-success btn-xs" onclick="QuickAddSaveRow(this);" title="Save this PR"><span class="glyphicon glyphicon-floppy-disk"></span></button> ' +
+                '<button type="button" class="btn btn-danger btn-xs" onclick="QuickAddDeleteRow(this);" title="Remove this row"><span class="glyphicon glyphicon-trash"></span></button>' +
+            '</td>'
+        );
+
+        $('#QuickAddPRTable tbody').append(newRow);
+        newRow.find('.QADateRequired').datepicker({ dateFormat: "dd-mm-yy" });
+        return newRow;
+    }
+
+    function QuickAddEnsureAtLeastOneRow() {
+        if ($('#QuickAddPRTable tbody tr').length === 0) {
+            QuickAddNewRow();
+        }
+    }
+
+    function QuickAddResetGrid() {
+        $('#QuickAddPRTable tbody').empty();
+        QuickAddNewRow();
+    }
+
+    // Validates the row plus the shared header fields above the grid - returns a list of the
+    // missing/invalid field labels (empty list = row is ready to save).
+    function QuickAddValidateRow(row) {
+        var messages = [];
+
+        if ($('#UserCode').val() == '') messages.push('User Code');
+        if ($('#PRDate').val() == '') messages.push('PR Date');
+        if ($('#ProjectRefDropdown').val() == '') messages.push('Project Name');
+
+        var item = row.find('.QAItem').val();
+        var newItem = row.find('.QANewItem').val();
+        if (item == '' && newItem == '') messages.push('Item');
+
+        if (row.find('.QASize').val() == '') messages.push('Size');
+        if (row.find('.QASpecs').val() == '') messages.push('Spec/MOC');
+
+        var qty = row.find('.QAQuantity').val();
+        if (qty == '') messages.push('Quantity');
+        else if (!$.isNumeric(qty)) messages.push('Quantity is not numeric');
+
+        if (row.find('.QAUnit').val() == '') messages.push('Unit of Measurement');
+        if (row.find('.QADateRequired').val() == '') messages.push('Date Required');
+
+        return messages;
+    }
+
+    function QuickAddShowRowError(row, text) {
+        row.nextAll('.qa-row-error').first().remove();
+        row.after($('<tr class="qa-row-error">').html('<td colspan="10"><div class="ui-error">' + text + '</div></td>'));
+    }
+
+    function QuickAddSaveRow(btn) {
+        var row = $(btn).closest('tr');
+        row.nextAll('.qa-row-error').first().remove();
+
+        var messages = QuickAddValidateRow(row);
+        if (messages.length > 0) {
+            QuickAddShowRowError(row, '* Please fill: ' + messages.join(', '));
+            return;
+        }
+
+        var payload = {
+            UserCode: $('#UserCode').val(),
+            PRDate: $('#PRDate').val(),
+            ProjectRefDropdown: $('#ProjectRefDropdown').val(),
+            ItemDropdown: row.find('.QAItem').val(),
+            NewItem: row.find('.QANewItem').val(),
+            ItemSize: row.find('.QASize').val(),
+            Specs: row.find('.QASpecs').val(),
+            Quantity: row.find('.QAQuantity').val(),
+            Unit: row.find('.QAUnit').val(),
+            DateRequired: row.find('.QADateRequired').val(),
+            Remark: row.find('.QARemark').val(),
+            Drawing: row.find('.QADrawing').val()
+        };
+
+        row.find('button').prop('disabled', true);
+
+        $.ajax({
+            url: '@Url.Action("PRSave","PurchaseRequisition")',
+            type: 'POST',
+            dataType: 'json',
+            contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+            data: payload,
+            success: function (data) {
+                if (!data || data.Result == 'Error' || data.Result == 'Record Not Found' || (data.Result && data.Result.indexOf('Error') >= 0)) {
+                    QuickAddShowRowError(row, data ? data.Result : 'Error saving this PR');
+                    row.find('button').prop('disabled', false);
+                    return;
+                }
+                PRAddToTable(data.PRNo, data.ItemDropdown, data.Quantity, data.ItemSize, data.Unit, data.Specs, data.PRDate, data.DateRequired, data.Remark, data.IsAllItemReceived, '');
+                refreshPRTableFilterDropdowns();
+                row.nextAll('.qa-row-error').first().remove();
+                row.remove();
+                QuickAddEnsureAtLeastOneRow();
+            },
+            error: function (ex) {
+                console.log(ex);
+                QuickAddShowRowError(row, 'Error saving this PR. Please try again.');
+                row.find('button').prop('disabled', false);
+            }
+        });
+    }
+
+    function QuickAddDeleteRow(btn) {
+        var row = $(btn).closest('tr');
+        row.nextAll('.qa-row-error').first().remove();
+        row.remove();
+        QuickAddEnsureAtLeastOneRow();
+    }
+
 </script>
 
 
@@ -947,26 +1189,10 @@
 
         <!-- ================= Search / Manage PR ================= -->
         <div class="ui-card">
-            <div class="ui-card-title"><span class="glyphicon glyphicon-search"></span>Find / Create Purchase Requisition</div>
+            <div class="ui-card-title"><span class="glyphicon glyphicon-search"></span>Find Purchase Requisition</div>
 
             <div class="row">
-                <div class="col-md-2">
-                    <div class="form-group">
-                        <label for="UserCode" class="form-label required">User Code</label>
-                        <select name="UserCode" id="UserCode" class="form-control ui-input-sm">
-                            <option value="">--Select--</option>
-                            <option value="KSK">KSK</option>
-                            <option value="JB">JB</option>
-                            <option value="AS">AS</option>
-                            <option value="MA">MA</option>
-                            <option value="CV">CV</option>
-                            <option value="IS">IS</option>
-                            <option value="OFMS">OFMS</option>
-                            <option value="OMMS">OMMS</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="col-md-5">
+                <div class="col-md-6">
                     <div class="form-group">
                         <label for="PRNo" class="form-label">Purchase Requisition No</label>
                         <div class="input-group">
@@ -983,37 +1209,14 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-6">
                     <label class="form-label" style="visibility:hidden;">&nbsp;</label>
-                    <div>
-                        <button type="button" id="btnAdd" name="btnAdd" class="btn btn-default" onclick="AddData();">
-                            <span class="glyphicon glyphicon-plus"></span>New PR
-                        </button>
+                    <div style="display:flex; align-items:center; gap:15px;">
                         <button type="button" id="btnReset" name="btnReset" class="btn btn-default" onclick="CancelToFreshScreen();" title="Clear everything and return to a fresh screen">
                             <span class="glyphicon glyphicon-erase"></span>Reset
                         </button>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label" style="visibility:hidden;">&nbsp;</label>
-                    <div>
                         <span class="ui-inline-label">Linked PO:</span>
                         <span class="ui-badge" id="PONumber" title="PO(s) mapped to this PR"></span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="ui-admin-row">
-                <span class="ui-admin-label">Admin Action</span>
-                <div class="row">
-                    <div class="col-md-3">
-                        <input type="password" name="POAdminCode" id="POAdminCode" placeholder="Admin Code"
-                               autocomplete="new-password" value="" class="form-control ui-input-sm">
-                    </div>
-                    <div class="col-md-3">
-                        <button type="button" name="RemovePRButton" id="RemovePRButton" class="btn btn-danger" onclick="RemovePR();">
-                            <span class="glyphicon glyphicon-trash"></span>Delete PR
-                        </button>
                     </div>
                 </div>
             </div>
@@ -1023,134 +1226,162 @@
         <div class="ui-card ui-narrow-fields">
             <div class="ui-card-title"><span class="glyphicon glyphicon-list-alt"></span>Requisition Details</div>
 
+            <!-- Shared by every row below - whether quick-adding several new PRs at once, or
+                 editing the single PR loaded via Load above. -->
             <div class="row">
-                <div class="col-md-6">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="UserCode" class="form-label required">User Code</label>
+                        <select name="UserCode" id="UserCode" class="form-control ui-input-sm">
+                            <option value="">--Select--</option>
+                            <option value="KSK">KSK</option>
+                            <option value="JB">JB</option>
+                            <option value="AS">AS</option>
+                            <option value="MA">MA</option>
+                            <option value="CV">CV</option>
+                            <option value="IS">IS</option>
+                            <option value="OFMS">OFMS</option>
+                            <option value="OMMS">OMMS</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-4">
                     <div class="form-group">
                         <label for="PRDate" class="form-label required">PR Date</label>
                         <input type="text" id="PRDate" name="PRDate" autocomplete="off" readonly="readonly" class="form-control" placeholder="Select Date" />
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label for="ItemDropdown" class="form-label required">Item</label>
-                        <select class="form-control" id="ItemDropdown" name="ItemDropdown"></select>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <div class="form-group">
                         <label for="ProjectRefDropdown" class="form-label required">Project Name</label>
-                        <div class="input-group">
-                            <select class="form-control" id="ProjectRefDropdown" name="ProjectRefDropdown"></select>
-                            <span class="input-group-btn">
-                                <button class="btn btn-default" type="button" onclick="GetPRs('new');" title="List PRs for this Project">
-                                    <span class="glyphicon glyphicon-th-list"></span>
-                                </button>
-                                <button class="btn btn-default" type="button" onclick="ExportPRsForProject();" title="Export PRs for Project to Excel">
-                                    <span class="glyphicon glyphicon-save"></span>
-                                </button>
-                            </span>
+                        <select class="form-control" id="ProjectRefDropdown" name="ProjectRefDropdown"></select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============ Editing an existing PR (shown after Load) ============ -->
+            <div id="SinglePREditSection">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="ItemDropdown" class="form-label required">Item</label>
+                            <select class="form-control" id="ItemDropdown" name="ItemDropdown"></select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="NewItem" class="form-label">New Item</label>
+                            <input type="text" id="NewItem" placeholder="New Item" class="form-control" name="NewItem">
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label for="NewItem" class="form-label">New Item</label>
-                        <input type="text" id="NewItem" placeholder="New Item" class="form-control" name="NewItem">
-                    </div>
-                </div>
-            </div>
 
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label for="ItemSize" class="form-label required">Size</label>
-                        <input type="text" id="ItemSize" placeholder="Size" class="form-control" name="ItemSize">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="ItemSize" class="form-label required">Size</label>
+                            <input type="text" id="ItemSize" placeholder="Size" class="form-control" name="ItemSize">
+                        </div>
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label for="Specs" class="form-label required">Spec/MOC</label>
-                        <input type="text" id="Specs" name="Specs" placeholder="Specs/MOC" class="form-control">
-                    </div>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label for="Quantity" class="form-label required">Quantity Ordered</label>
-                        <input type="number" min="0" value="0" step=".01" id="Quantity" name="Quantity" placeholder="Quantity Ordered" class="form-control">
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label for="DateRequired" class="form-label required">Date Required</label>
-                        <input type="text" autocomplete="off" readonly="readonly" id="DateRequired" name="DateRequired" class="form-control" placeholder="Select Date" />
-                    </div>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label for="Unit" class="form-label required">Unit of Measurement</label>
-                        <select id="Unit" name="Unit" class="form-control">
-                            <option value="">--Select--</option>
-                            <option value="Kgs">Kgs</option>
-                            <option value="Nos">Nos</option>
-                            <option value="Dozen">Dozen</option>
-                            <option value="Metres">Metres</option>
-                            <option value="Feet">Feet</option>
-                            <option value="Litres">Litres</option>
-                            <option value="Sets">Sets</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label for="OldProjects" class="form-label">Old Projects</label>
-                        <div class="input-group">
-                            <select class="form-control" id="OldProjects" name="OldProjects"></select>
-                            <span class="input-group-btn">
-                                <button class="btn btn-default" type="button" onclick="GetPRs('old');" title="Display Old PRs for Project">
-                                    <span class="glyphicon glyphicon-th-list"></span>
-                                </button>
-                            </span>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="Specs" class="form-label required">Spec/MOC</label>
+                            <input type="text" id="Specs" name="Specs" placeholder="Specs/MOC" class="form-control">
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label for="Remark" class="form-label">Remark</label>
-                        <input type="text" name="Remark" id="Remark" placeholder="Remark" class="form-control">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="Quantity" class="form-label required">Quantity Ordered</label>
+                            <input type="number" min="0" value="0" step=".01" id="Quantity" name="Quantity" placeholder="Quantity Ordered" class="form-control">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="DateRequired" class="form-label required">Date Required</label>
+                            <input type="text" autocomplete="off" readonly="readonly" id="DateRequired" name="DateRequired" class="form-control" placeholder="Select Date" />
+                        </div>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label for="Drawing" class="form-label">Drawing</label>
-                        <input type="text" name="Drawing" id="Drawing" placeholder="Drawing" class="form-control">
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="Unit" class="form-label required">Unit of Measurement</label>
+                            <select id="Unit" name="Unit" class="form-control">
+                                <option value="">--Select--</option>
+                                <option value="Kgs">Kgs</option>
+                                <option value="Nos">Nos</option>
+                                <option value="Dozen">Dozen</option>
+                                <option value="Metres">Metres</option>
+                                <option value="Feet">Feet</option>
+                                <option value="Litres">Litres</option>
+                                <option value="Sets">Sets</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="Remark" class="form-label">Remark</label>
+                            <input type="text" name="Remark" id="Remark" placeholder="Remark" class="form-control">
+                        </div>
                     </div>
                 </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="Drawing" class="form-label">Drawing</label>
+                            <input type="text" name="Drawing" id="Drawing" placeholder="Drawing" class="form-control">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= Save (kept in this card, alongside the fields it saves) ================= -->
+                <div class="row ui-card-footer">
+                    <div class="col-md-6">
+                        <div id="message" name="message"></div>
+                    </div>
+                    <div class="col-md-6 btn-toolbar-right">
+                        <button type="submit" id="btnSave" name="btnSave" class="btn btn-primary" onclick="return SaveData();">
+                            <span class="glyphicon glyphicon-floppy-disk"></span>Save PR
+                        </button>
+                    </div>
+                </div>
+                <div id="errormessage"></div>
             </div>
 
-            <!-- ================= Save (kept in this card, alongside the fields it saves) ================= -->
-            <div class="row ui-card-footer">
-                <div class="col-md-6">
-                    <div id="message" name="message"></div>
+            <!-- ============ Quick-add: enter several new PRs for the Project/Date above, one row per item ============ -->
+            <div id="QuickAddPRSection">
+                <div class="table-responsive">
+                    <table id="QuickAddPRTable" class="table table-bordered table-condensed ui-table">
+                        <thead>
+                            <tr>
+                                <th style="min-width:150px;" class="required">Item</th>
+                                <th style="min-width:120px;">New Item</th>
+                                <th style="min-width:100px;" class="required">Size</th>
+                                <th style="min-width:120px;" class="required">Spec/MOC</th>
+                                <th style="min-width:80px;" class="required">Qty</th>
+                                <th style="min-width:100px;" class="required">Unit</th>
+                                <th style="min-width:110px;" class="required">Date Reqd</th>
+                                <th style="min-width:110px;">Remark</th>
+                                <th style="min-width:110px;">Drawing</th>
+                                <th style="width:80px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
                 </div>
-                <div class="col-md-6 btn-toolbar-right">
-                    <button type="submit" id="btnSave" name="btnSave" class="btn btn-primary" onclick="return SaveData();">
-                        <span class="glyphicon glyphicon-floppy-disk"></span>Save PR
-                    </button>
-                </div>
+                <button type="button" id="btnQuickAddRow" name="btnQuickAddRow" class="btn btn-default btn-sm" onclick="QuickAddNewRow();">
+                    <span class="glyphicon glyphicon-plus"></span>Add Row
+                </button>
+                <span class="ui-inline-label" style="font-weight:normal;">
+                    &nbsp;Each row's <span class="glyphicon glyphicon-floppy-disk"></span> saves that PR - PR Date, Project Name and User Code above apply to every row.
+                </span>
             </div>
-            <div id="errormessage"></div>
         </div>
     </form> <!-- /PRForm -->
 
@@ -1258,15 +1489,68 @@
         </div>
     </form> <!-- /POForm -->
 
+    <!-- ================= Admin Action (relocated from Find/Create Purchase Requisition) ================= -->
+    <div class="ui-card">
+        <div class="ui-card-title"><span class="glyphicon glyphicon-lock"></span>Admin Action</div>
+        <div class="row">
+            <div class="col-md-3">
+                <!-- Deliberately separate from the "Purchase Requisition No" textbox up top - Delete
+                     PR always acts on whatever PR No is entered here, never on whatever's loaded above. -->
+                <input type="text" name="DeletePRNo" id="DeletePRNo" placeholder="PR No to Delete"
+                       autocomplete="off" class="form-control ui-input-sm">
+            </div>
+            <div class="col-md-3">
+                <input type="password" name="POAdminCode" id="POAdminCode" placeholder="Admin Code"
+                       autocomplete="new-password" value="" class="form-control ui-input-sm">
+            </div>
+            <div class="col-md-3">
+                <button type="button" name="RemovePRButton" id="RemovePRButton" class="btn btn-danger" onclick="RemovePR();">
+                    <span class="glyphicon glyphicon-trash"></span>Delete PR
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= Browse Old Project PRs (lookup only - not part of creating a new PR) ================= -->
+    <div class="ui-card">
+        <div class="ui-card-title"><span class="glyphicon glyphicon-time"></span>Browse Old Project PRs</div>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="OldProjects" class="form-label">Old Projects</label>
+                    <div class="input-group">
+                        <select class="form-control" id="OldProjects" name="OldProjects"></select>
+                        <span class="input-group-btn">
+                            <button class="btn btn-default" type="button" onclick="GetPRs('old');" title="Display Old PRs for Project">
+                                <span class="glyphicon glyphicon-th-list"></span>
+                            </button>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- ================= PRs for Project ================= -->
     <div class="ui-card">
         <div class="ui-card-title ui-card-title-with-filter">
-            <span><span class="glyphicon glyphicon-th-list"></span>Purchase Requisitions for Project</span>
+            <span><span class="glyphicon glyphicon-th-list"></span>Purchase Requisitions for Project &nbsp; </span>
+            <div class="input-group ui-project-filter-group">
+                <select id="ProjectRefDropdownList" name="ProjectRefDropdownList" class="form-control" title="Select a Project to list its PRs below"></select>
+                <span class="input-group-btn">
+                    <button class="btn btn-default" type="button" onclick="GetPRs('list');" title="List PRs for this Project">
+                        <span class="glyphicon glyphicon-th-list"></span>
+                    </button>
+                    <button class="btn btn-default" type="button" onclick="ExportPRsForProject('list');" title="Export PRs for Project to Excel">
+                        <span class="glyphicon glyphicon-save"></span>
+                    </button>
+                </span>
+            </div>
             <select id="ColourFilterPRTable" class="form-control ui-color-filter-select" title="Filter the table below by row colour">
                 <option value="">All Colours</option>
-                <option value="yellow" style="background-color:#fff59d;">Yellow</option>
-                <option value="green" style="background-color:#c8f7c8;">Green</option>
-                <option value="white" style="background-color:#ffffff;">White</option>
+                <option value="yellow" style="background-color:#fff59d;">Mapped to PO</option>
+                <option value="green" style="background-color:#c8f7c8;">All Items Received</option>
+                <option value="white" style="background-color:#ffffff;">Pending / Not Mapped</option>
             </select>
         </div>
         <div class="table-responsive">
