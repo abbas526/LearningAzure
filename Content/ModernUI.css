@@ -83,7 +83,8 @@
 }
 
 .ui-modern label.required:after,
-.ui-modern .form-label.required:after {
+.ui-modern .form-label.required:after,
+.ui-modern th.required:after {
     content: " *";
     color: #d9534f;
 }
@@ -278,8 +279,18 @@
     .ui-modern .ui-card-title-with-filter .ui-color-filter-select {
         margin-left: auto;
         width: auto;
-        max-width: 110px;
+        /* Wide enough for the longest option label ("Pending / Not Mapped") to show in full
+           once selected, not just in the open dropdown list. */
+        max-width: 190px;
         display: inline-block;
+    }
+
+    /* Project picker docked next to (before) the colour filter - lets the PR listing below be
+       browsed directly from this card, without touching the Requisition Details fields above. */
+    .ui-modern .ui-card-title-with-filter .ui-project-filter-group {
+        margin-left: 32px;
+        width: 260px;
+        flex: 0 0 auto;
     }
 
 /* -- Inline label next to a value (e.g. "Linked PO:"), darker/larger than .text-muted */
@@ -312,6 +323,30 @@
         height: 32px;
         font-size: 12.5px;
     }
+
+/* -- Quick-add PR grid (Purchase Requisition Index) - several new PRs, one row per item -------
+      Narrower Qty/Unit/Date columns so a row reads close to a single compact line, matching the
+      "keep the boxes small" quick-entry request; other columns just fill their <th>. */
+.ui-modern #QuickAddPRTable td:nth-child(5) .form-control,
+.ui-modern #QuickAddPRTable td:nth-child(6) .form-control,
+.ui-modern #QuickAddPRTable td:nth-child(7) .form-control {
+    min-width: 70px;
+}
+
+.ui-modern #QuickAddPRTable td .form-control {
+    width: 100%;
+}
+
+/* Inline validation message for a single quick-add row - reuses .ui-error's look, but as its own
+   full-width row directly under the row it applies to instead of a page-level block. */
+.ui-modern .qa-row-error td {
+    padding: 0 8px 8px;
+    border-top: none;
+}
+
+.ui-modern .qa-row-error .ui-error {
+    margin-top: 0;
+}
 
 /* -- Asc/desc sort arrows next to a sortable column header (e.g. PR Date / Reqd Date) ------ */
 .ui-modern .ui-sort-arrows {
