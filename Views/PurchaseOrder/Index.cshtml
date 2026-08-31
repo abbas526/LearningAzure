@@ -1,10 +1,15 @@
 ﻿@{
     ViewBag.Title = "Index";
+    // Cache-bust ModernUI.css against its own last-write time, so a browser that already cached an
+    // older copy (same URL every deploy otherwise) is forced to re-fetch it after any CSS edit,
+    // instead of silently keeping stale styling until a manual hard refresh.
+    var modernUiCssVersion = System.IO.File.GetLastWriteTime(Server.MapPath("~/Content/ModernUI.css")).Ticks;
 }
 <script src="~/Scripts/jquery-3.4.1.js"></script>
 <link href="~/Scripts/jquery-ui-1.12.1.min.css" rel="stylesheet" />
 @*<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.css">*@
 <link href="~/Content/Purchase.css" rel="stylesheet" />
+<link href="~/Content/ModernUI.css?v=@modernUiCssVersion" rel="stylesheet" />
 <script src="~/Scripts/jquery-ui-1.12.1.min.js"></script>
 @*<script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>*@
 <script src="~/Scripts/jquery.validate.min-1.19.js"></script>
@@ -75,7 +80,7 @@
                     $('#PaymentTerms').val(data.PaymentTerms);
                     $('#PORemarks').val(data.PORemarks);
                     $('#PRTable tbody').empty();
-                    $('#AllProjects').val(data.AllProjects);
+                    projectArr = data.AllProjects ? data.AllProjects.split(',').filter(function (p) { return p !== ''; }) : [];
                     $('#finalTotal').text(data.POAmount);
                     $('#BillAmount').val(data.BillAmount);
                     $('#BillNoAndDate').val(data.BillNoAndDate);
@@ -106,6 +111,8 @@
                             purchaseOrderItems[i].Unit, purchaseOrderItems[i].POQuantity, purchaseOrderItems[i].Rate,
 							purchaseOrderItems[i].Discount, purchaseOrderItems[i].Drawing);
                     }
+                    RenumberPRTable();
+                    RenderProjectChips();
                 }
 
             },
@@ -121,6 +128,8 @@
         var purchaseOrderItems = FillItemsArray();
         if (purchaseOrderItems == null || purchaseOrderItems.length == 0)
         {
+            $('#finalTotal').text('0.00');
+            $('#POAmount').val('');
             return 0;
         }
 
@@ -172,6 +181,37 @@
         $('#PRTable tbody').empty();
         $('#AllProjects').val('');
         projectArr = [];
+        RenderProjectChips();
+        $('#finalTotal').text('0.00');
+        $('#POAmount').val('');
+    }
+
+    function GeneratePONumber() {
+        $.ajax({
+            type: 'GET',
+            url: '@Url.Action("GenerateNewPONumber", "PurchaseOrder")',
+            dataType: 'json',
+            success: function (data) {
+                if (data == null || data == '' || data.indexOf('Error') == 0) {
+                    alert(data);
+                    return;
+                }
+                ClearScreen();
+                $('#PONumber').val(data);
+            },
+            error: function (ex) {
+                alert('Unable to generate a new PO Number');
+                console.log(ex);
+            }
+        });
+    }
+
+    // Renumbers the "#" column so every row shows its current position - called after any
+    // insert or removal, rather than trying to compute the right number at insert time.
+    function RenumberPRTable() {
+        $('#PRTable tbody tr').each(function (idx) {
+            $(this).find('td').eq(0).text(idx + 1);
+        });
     }
 
     function PRAddToTable(Project, PRNumber, Item, Qty, Unit, ItemSize, Drawing) {
@@ -181,6 +221,7 @@
 
     // Append product to the table
         $("#PRTable tbody").append("<tr>" +
+			"<td class='row-num'></td>" +
 			"<td>" + linkColumn + "</td>" +  // Add button only if Drawing has a value
         "<td>" + Project + "</td>" +
         "<td>" + PRNumber + "</td>" +
@@ -201,6 +242,7 @@
 		var linkColumn = Drawing ? "<a href='#' onclick=\"ShowPopUp('" + encodedDrawing + "')\"><span class='glyphicon glyphicon-plus'></span></a>" : "";
 
         $("#PRTable tbody").append("<tr>" +
+			"<td class='row-num'></td>" +
 			"<td>" + linkColumn + "</td>" +
             "<td>" + Project + "</td>" +
             "<td>" + PRNumber + "</td>" +
@@ -218,6 +260,11 @@
     function GetPRs() {
         var projectSelected = $("#ProjectRef").val();
 
+        if (projectSelected == null || projectSelected == '') {
+            alert('Please select a Project Ref');
+            return;
+        }
+
         if (projectArr.length > 0 && projectArr.includes(projectSelected) == true) {
             alert('Project Already Selected');
             return;
@@ -233,16 +280,56 @@
                  }
                  else {
                          projectArr.push(projectSelected);
-                         var projects = projectArr.join();
-                         $("#AllProjects").val(projects);
 
                      for (var i = 0; i < data.length; i++) {
                          PRAddToTable(data[i].ProjectRefDropdown, data[i].PRNo, data[i].ItemDropdown, data[i].Quantity, data[i].Unit,data[i].ItemSize,data[i].Drawing);
                      }
+                     RenumberPRTable();
+                     RenderProjectChips();
                      PRData = data;
                  }
              }
          });
+    }
+
+    // Renders the "Projects Loaded" chip list from projectArr, and keeps the hidden #AllProjects
+    // field (submitted with the form) in sync with it.
+    function RenderProjectChips() {
+        var container = $('#ProjectsLoadedDisplay');
+        container.empty();
+        for (var i = 0; i < projectArr.length; i++) {
+            var project = projectArr[i];
+            var chip = $('<span class="ui-project-chip"></span>').text(project);
+            var removeIcon = $('<span class="ui-project-chip-remove" title="Remove this project">&times;</span>');
+            removeIcon.on('click', (function (p) {
+                return function () { RemoveProject(p); };
+            })(project));
+            chip.append(removeIcon);
+            container.append(chip);
+        }
+        $('#AllProjects').val(projectArr.join());
+    }
+
+    // Removing a project's chip drops that project AND every PR row it loaded into the table below
+    // - risky (it can wipe out rate/discount/qty a user already entered), so this always confirms
+    // first.
+    function RemoveProject(project) {
+        var res = confirm("Are you sure? This will remove Project '" + project + "' and all its PR rows from the table below.");
+        if (res == false) {
+            return;
+        }
+
+        $('#PRTable tbody tr').each(function () {
+            var row = $(this);
+            if (row.find('td').eq(2).text() == project) {
+                row.remove();
+            }
+        });
+
+        RenumberPRTable();
+        projectArr = projectArr.filter(function (p) { return p !== project; });
+        RenderProjectChips();
+        CalculateTotals();
     }
 
     $(document).ready(function () {
@@ -260,7 +347,14 @@
 		});
 
 
-        $('#AllProjects').attr('readonly', true);
+        // Auto-recalculate the Total Amount whenever PO Qty, Rate or Discount is edited, instead of
+        // requiring an explicit "Calculate Total" click every time. Both "change" and "blur" are
+        // bound (not just blur) because blur alone was occasionally missing the very first edit on
+        // a freshly-added row - "change" fires reliably as soon as the value commits (including via
+        // the number input's spinner arrows), so the total is never left stale.
+        $('#PRTable').on('blur change', 'input[id^="POQty_"], input[id^="Rate_"], input[id^="Discount_"]', function () {
+            CalculateTotals();
+        });
 
         $.ajax({
                    type: "GET",
@@ -422,10 +516,13 @@
     }
 
     function SaveData() {
-            //Serialize the form datas.
+        // Always (re)calculate the total first, so it's never missed/stale regardless of what
+        // the user did or didn't blur/change before clicking Save All.
+        CalculateTotals();
+
+        //Serialize the form datas.
         if (ValidateForm() == false) { return false; }
 
-        CalculateTotals();
         var valdata = $("#POForm").serialize();
         var POSaveSuccess = true;
         // Save PO
@@ -460,7 +557,7 @@
             var row = $(this);
             var PurchaseOrderItem = {};
             PurchaseOrderItem.PONumber = $('#PONumber').val();
-            PurchaseOrderItem.PRNumber = row.find("TD").eq(1).html();
+            PurchaseOrderItem.PRNumber = row.find("TD").eq(3).html();
             PurchaseOrderItem.Rate = row.find("#Rate_" + PurchaseOrderItem.PRNumber).val();
             PurchaseOrderItem.Discount = row.find("#Discount_" + PurchaseOrderItem.PRNumber).val();
             PurchaseOrderItem.POQuantity = row.find("#POQty_" + PurchaseOrderItem.PRNumber).val();
@@ -486,8 +583,8 @@
             var row = $(this);
             var PurchaseOrderItem = {};
             PurchaseOrderItem.PONumber = $('#PONumber').val();
-            PurchaseOrderItem.PRNumber = row.find("TD").eq(2).html();
-            PurchaseOrderItem.Qty = row.find("TD").eq(6).html();
+            PurchaseOrderItem.PRNumber = row.find("TD").eq(3).html();
+            PurchaseOrderItem.Qty = row.find("TD").eq(7).html();
             PurchaseOrderItem.Rate = row.find("#Rate_" + PurchaseOrderItem.PRNumber).val();
             PurchaseOrderItem.Discount = row.find("#Discount_" + PurchaseOrderItem.PRNumber).val();
             PurchaseOrderItem.POQuantity = row.find("#POQty_" + PurchaseOrderItem.PRNumber).val();
@@ -599,260 +696,328 @@
 
     }
 </script>
-<div class="container">
-    <form class="form-horizontal" role="form" name="POForm" id="POForm">
-        <h2>Purchase Order Details</h2>
-        <div class="row">
-            <div class="form-group col-md-6">
-                <label for="PR" class="col-sm-3 control-label required">Purchase Order</label>
-                <div class="col-sm-4">
-                    <input type="text" id="PONumber" required="required" autocomplete="off" name="PONumber" data-required="true" placeholder="Purchase Order Number" class="form-control" autofocus>
-                </div>
-                <div class="col-sm-2">
-                    <a href="#" onclick="PrintPO();" title="Print PO" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
-                        <i class="glyphicon glyphicon-print"></i>
-                    </a>&nbsp;
-                    <a href="#" onclick="LoadData();" title="Search PO" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
-                        <i class="glyphicon glyphicon-search"></i>
-                    </a>&nbsp;
-                    <a href="#" onclick="ExportPRsForPO();" title="Export PRs for PO to Excel" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
-                        <i class="glyphicon glyphicon-save"></i>
-                    </a>
-                </div>
-            </div>
-            <div class="form-group col-md-6">
-                <label for="Admin Code" class="col-sm-3 control-label required">Admin Code</label>
-                <div class="col-sm-6">
-                    <input type="password" size="4" name="POAdminCode" id="POAdminCode" autocomplete="off" />
-                    <input type="button" id="RemovePOButton" name="RemovePOButton" value="Delete PO" onclick="RemovePO();" />
-                    &nbsp;<input type="hidden" name="POAmount" id="POAmount" />
-                </div>
-            </div>
-        </div>
-        <div class="row">
-            <div class="form-group col-md-6">
-                <label for="PR" class="col-sm-3 control-label ">Approval Status</label>
-                <div class="col-sm-4">
-                    &nbsp; <span style="font-weight: bold;color:blue;" id="ApprovalStatus"></span>
-                </div>
-                <div class="col-sm-2">
-                    <a href="#" onclick="RequestApproval();" title="Request for Approval" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
-                        <i class="glyphicon glyphicon-bell"></i>
-                    </a>
-                </div>
-            </div>
-            <div class="form-group col-md-6">
-                <label for="Admin Code" class="col-sm-3 control-label ">Approver Code</label>
-                <div class="col-sm-6">
-                    <input type="password" size="4" name="POApproverCode" id="POApproverCode" autocomplete="off" />
-                    <input type="button" id="ApprovePOButton" name="ApprovePOButton" value="Approve PO" onclick="ApprovePO();" />
-                    
+<div class="container mt-4 ui-modern">
 
-                </div>
-            </div>
-        </div>
-        <div class="row">
-            <div class="form-group col-md-6">
-                <label for="PR" class="col-sm-3 control-label required">Company</label>
-                <div class="col-sm-6">
-                    <select name="Company" id="Company" class="form-control" required="required">
-                        <option value="">Please Select</option>
-                        <option value="Oriental FabriTech Pvt. Ltd.">Oriental FabriTech Pvt. Ltd.</option>
-                        <option value="Oriental Mechanical Works Pvt. Ltd.">Oriental Mechanical Works Pvt. Ltd.</option>
-                    </select>
-                </div>
-            </div>
-            <div class="form-group col-md-6">
-                <label for="PR" class="col-sm-3 control-label required">P O Date</label>
-                <div class="col-sm-6">
-                    <input type="text" id="PODate" name="PODate" autocomplete="off" readonly="readonly" required="required" placeholder="Purchase Order Date" class="form-control">
-                </div>
-            </div>
-        </div>
-        <div class="row">
-            <div class="form-group col-md-6">
-                <label for="ProjectRef" class="col-sm-3 control-label required">Project Ref</label>
-                <div class="col-sm-6">
-                    <select class="form-control" id="ProjectRef" name="ProjectRef" required="required"></select>
-                </div>
-            </div>
-            <div class="form-group col-md-6">
-                <input type="button" class="col-sm-3" id="btnDisplayPR" name="btnDisplayPR" value="Show PR" onclick="GetPRs();" />
-                &nbsp;
-                <input type="text" id="AllProjects" name="AllProjects" class="col-sm-3" />
-            </div>
-        </div>
-        <div class="row">
-			<div class="form-group col-md-12">
-				<table id="PRTable" name="PRTable" class="table table-bordered table-condensed table-striped">
-					<thead>
-						<tr style="background-color:lightblue">
-							<th>
-								-
-							</th>
-							<th>Project</th>
-							<th>PR Number</th>
-							<th>Item</th>
-							<th>Size</th>
-							<th>Unit</th>
-							<th>Qty</th>
-							<th>PO Qty</th>
-							<th>Rate</th>
-							<th>Discount</th>
-							<th>Select</th>
-						</tr>
-					</thead>
-					<tbody>
-					</tbody>
-					<tfoot>
-						<tr>
-                            <td>&nbsp;</td>
-							<td>&nbsp;</td>
-							<td>&nbsp;</td>
-							<td>&nbsp;</td>
-							<td>&nbsp;</td>
-							<td>&nbsp;</td>
-							<td>&nbsp;</td>
-							<td>&nbsp;</td>
-							<td>Total</td>
-							<td><span id="finalTotal">0.00</span></td>
-							<td>
-								<input type="button" id="CalculateTotal" name="CalculateTotal" onclick="CalculateTotals();" value="Calculate Total" />
-							</td>
-						</tr>
-					</tfoot>
-				</table>
-				<!-- Popup Modal -->
-				<div class="popup" style="display:none;">
-					<span class="close-icon" onclick="ClosePopup();" style="position: absolute; top: 10px; right: 10px; cursor: pointer;">
-						<span class="glyphicon glyphicon-remove"></span>
-					</span>
-					<table id="popupTable" border="1" class="popup-content" style="height: 100px; width: 250px;">
-						<thead>
-							<tr>
-								<th style="background-color:lightblue;padding-left:5px;">Drawing</th>
-								<!-- Add other columns as needed -->
-							</tr>
-						</thead>
-						<tbody>
-							<!-- The row will be appended here dynamically -->
-						</tbody>
-					</table>
-					@*<br />
-					<button class="close-button" onclick="ClosePopup();">Close</button>*@
-				</div>
-			</div>
-        </div>
-        <div class="row">
-            <div class="form-group col-md-6">
-                <label for="email" class="col-sm-3 control-label required">Vendor Name</label>
-                <div class="col-sm-6">
-                    <select class="form-control" id="Vendor" name="Vendor" required="required"></select>
-                </div>
-            </div>
-            <div class="form-group col-md-6">
-                <label for="Specs" class="col-sm-3 control-label required">Quote Ref</label>
-                <div class="col-sm-6">
-                    <input type="text" id="QuoteRef" name="QuoteRef" required="required" placeholder="Quote Ref" class="form-control">
-                </div>
-            </div>
-        </div>
-        <div class="row">
-            <div class="form-group col-md-6">
-                <label for="password" class="col-sm-3 control-label">HSN No</label>
-                <div class="col-sm-6">
-                    <input type="text" id="HSNNo" name="HSNNo" required="required" placeholder="HSN No" class="form-control">
-                </div>
-            </div>
-            <div class="form-group col-md-6">
-                <label for="Quantity" class="col-sm-3 control-label required">Delivery Required By</label>
-                <div class="col-sm-9">
-                    <input type="text" name="DeliveryRequiredBy" placeholder="Delivery Required By" autocomplete="off" readonly="readonly" required="required" id="DeliveryRequiredBy" class="form-control">
-                </div>
-            </div>
-        </div>
-        <div class="row">
-            <div class="form-group col-md-6">
-                <label for="Height" class="col-sm-3 control-label required">Delivery Instructions</label>
-                <div class="col-sm-6">
-                    <input type="text" name="DeliveryInstructions" required="required" id="DeliveryInstructions" placeholder="Delivery Instructions" class="form-control">
-                </div>
-            </div>
-            <div class="form-group col-md-6">
-                <label for="Vendor" class="col-sm-3 control-label required">Delivery Required At</label>
-                <div class="col-sm-6">
-                    <input type="text" name="DeliveryRequiredAt" required="required" id="DeliveryRequiredAt" placeholder="Delivery Required At" class="form-control">
-                </div>
-            </div>
-        </div>
-        <div class="row">
-            <div class="form-group col-md-6">
-                <label for="Rate" class="col-sm-3 control-label required">Transportation Charges</label>
-                <div class="col-sm-6">
-                    <input type="text" name="TransportationCharges" id="TransportationCharges" placeholder="Transportation" class="form-control" required="required">
-                </div>
-            </div>
-            <div class="form-group col-md-6">
-                <label for="Rate" class="col-sm-3 control-label required">Payment Terms</label>
-                <div class="col-sm-6">
-                    <select class="form-control" id="PaymentTerms" name="PaymentTerms" required="required">
-                    </select>
-                </div>
-            </div>
-        </div>
-        <div class="row">
-            <div class="form-group col-md-6">
-                <label for="Rate" class="col-sm-3 control-label">Remarks</label>
-                <div class="col-sm-6">
-                    <textarea class="form-control" id="PORemarks" name="PORemarks" rows="3"></textarea>
-                </div>
-            </div>
-            <div class="form-group col-md-6">
-                <div>
-                    <label for="Rate">Display Total</label>
+    <div class="ui-page-title">
+        <span class="glyphicon glyphicon-shopping-cart"></span>Purchase Order Details
+    </div>
 
-                    <input type="checkbox" id="DisplayTotal" name="DisplayTotal">
+    <form role="form" name="POForm" id="POForm" autocomplete="off">
+
+        <!-- ================= Search / Manage PO ================= -->
+        <div class="ui-card">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-search"></span>Find / Create Purchase Order</div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="PONumber" class="form-label required">Purchase Order Number</label>
+                        <div class="input-group">
+                            <input type="text" id="PONumber" name="PONumber" autocomplete="off" placeholder="Purchase Order Number" class="form-control ui-input-md" autofocus>
+                            <span class="input-group-btn">
+                                <button class="btn btn-info" type="button" onclick="LoadData();" title="Load this PO">
+                                    <span class="glyphicon glyphicon-search"></span>Load
+                                </button>
+                                <button class="btn btn-default" type="button" onclick="PrintPO();" title="Print PO">
+                                    <span class="glyphicon glyphicon-print"></span>
+                                </button>
+                                <button class="btn btn-default" type="button" onclick="ExportPRsForPO();" title="Export PRs for PO to Excel">
+                                    <span class="glyphicon glyphicon-save"></span>
+                                </button>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" style="visibility:hidden;">&nbsp;</label>
+                    <div style="display:flex; align-items:center; gap:15px;">
+                        <button type="button" id="GeneratePOButton" name="GeneratePOButton" class="btn btn-default" onclick="GeneratePONumber();" title="Generate a new unique PO Number and start a fresh PO">
+                            <span class="glyphicon glyphicon-plus"></span>New PO
+                        </button>
+                        <button type="button" id="ClearButton" name="ClearButton" class="btn btn-default" onclick="ClearScreen();" title="Clear everything and return to a fresh screen">
+                            <span class="glyphicon glyphicon-erase"></span>Clear All
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= PO Details ================= -->
+        <div class="ui-card ui-narrow-fields">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-list-alt"></span>Purchase Order Details</div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="Company" class="form-label required">Company</label>
+                        <select name="Company" id="Company" class="form-control">
+                            <option value="">Please Select</option>
+                            <option value="Oriental FabriTech Pvt. Ltd.">Oriental FabriTech Pvt. Ltd.</option>
+                            <option value="Oriental Mechanical Works Pvt. Ltd.">Oriental Mechanical Works Pvt. Ltd.</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="PODate" class="form-label required">P O Date</label>
+                        <input type="text" id="PODate" name="PODate" autocomplete="off" readonly="readonly" class="form-control" placeholder="Select Date">
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="Vendor" class="form-label required">Vendor Name</label>
+                        <select class="form-control" id="Vendor" name="Vendor"></select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="QuoteRef" class="form-label required">Quote Ref</label>
+                        <input type="text" id="QuoteRef" name="QuoteRef" placeholder="Quote Ref" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="HSNNo" class="form-label">HSN No</label>
+                        <input type="text" id="HSNNo" name="HSNNo" placeholder="HSN No" class="form-control">
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="DeliveryRequiredBy" class="form-label required">Delivery Required By</label>
+                        <input type="text" name="DeliveryRequiredBy" id="DeliveryRequiredBy" autocomplete="off" readonly="readonly" class="form-control" placeholder="Select Date">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="DeliveryRequiredAt" class="form-label required">Delivery Required At</label>
+                        <input type="text" name="DeliveryRequiredAt" id="DeliveryRequiredAt" placeholder="Delivery Required At" class="form-control">
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="DeliveryInstructions" class="form-label required">Delivery Instructions</label>
+                        <input type="text" name="DeliveryInstructions" id="DeliveryInstructions" placeholder="Delivery Instructions" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="TransportationCharges" class="form-label required">Transportation Charges</label>
+                        <input type="text" name="TransportationCharges" id="TransportationCharges" placeholder="Transportation" class="form-control">
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="PaymentTerms" class="form-label required">Payment Terms</label>
+                        <select class="form-control" id="PaymentTerms" name="PaymentTerms"></select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="PORemarks" class="form-label">Remarks</label>
+                        <textarea class="form-control" id="PORemarks" name="PORemarks" rows="3"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-12">
+                    <label class="form-label mb-0">Display Options</label><br />
+                    <label class="checkbox-inline"><input type="checkbox" id="DisplayTotal" name="DisplayTotal"> Display Total</label>
                     &nbsp;&nbsp;&nbsp;&nbsp;
-                    <label for="Rate">Display Discount</label>
+                    <label class="checkbox-inline"><input type="checkbox" id="DisplayDiscount" name="DisplayDiscount"> Display Discount</label>
+                </div>
+            </div>
+        </div>
 
-                    <input type="checkbox" id="DisplayDiscount" name="DisplayDiscount">
+        <!-- ================= Items for this PO ================= -->
+        <div class="ui-card">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-th-list"></span>Items for this PO</div>
+
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="ProjectRef" class="form-label required">Project Ref</label>
+                        <select class="form-control" id="ProjectRef" name="ProjectRef"></select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" style="visibility:hidden;">&nbsp;</label>
+                    <div>
+                        <button type="button" id="btnDisplayPR" name="btnDisplayPR" class="btn btn-default" onclick="GetPRs();" title="Pull unassigned PRs for the selected Project Ref">
+                            <span class="glyphicon glyphicon-import"></span>Show PR
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Projects Loaded</label>
+                        <div id="ProjectsLoadedDisplay" class="ui-project-chip-list"></div>
+                        <input type="hidden" id="AllProjects" name="AllProjects">
+                    </div>
+                </div>
+            </div>
+            <input type="hidden" name="POAmount" id="POAmount" />
+
+            <div class="table-responsive">
+                <table id="PRTable" name="PRTable" class="table table-bordered table-condensed ui-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>-</th>
+                            <th>Project</th>
+                            <th>PR Number</th>
+                            <th>Item</th>
+                            <th>Size</th>
+                            <th>Unit</th>
+                            <th>Qty</th>
+                            <th>PO Qty</th>
+                            <th>Rate</th>
+                            <th>Discount</th>
+                            <th>Select</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                            <td>Total</td>
+                            <td><span id="finalTotal">0.00</span></td>
+                            <td>
+                                <button type="button" id="CalculateTotal" name="CalculateTotal" class="btn btn-info btn-xs" onclick="CalculateTotals();">Calculate Total</button>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <!-- Popup Modal -->
+                <div class="popup" style="display:none;">
+                    <span class="close-icon" onclick="ClosePopup();" style="position: absolute; top: 10px; right: 10px; cursor: pointer;">
+                        <span class="glyphicon glyphicon-remove"></span>
+                    </span>
+                    <table id="popupTable" border="1" class="popup-content" style="height: 100px; width: 250px;">
+                        <thead>
+                            <tr>
+                                <th style="background-color:#eef3f9;padding-left:5px;">Drawing</th>
+                                <!-- Add other columns as needed -->
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- The row will be appended here dynamically -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
+
+        <!-- ================= Billing ================= -->
+        <div class="ui-card ui-narrow-fields">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-usd"></span>Billing</div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="BillAmount" class="form-label">Bill Amount</label>
+                        <input type="text" name="BillAmount" id="BillAmount" placeholder="Bill Amount" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="BillNoAndDate" class="form-label">Bill No &amp; Date</label>
+                        <input type="text" name="BillNoAndDate" id="BillNoAndDate" placeholder="Bill No And Date" class="form-control">
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="PaymentDate" class="form-label">Payment Date</label>
+                        <input type="text" name="PaymentDate" autocomplete="off" id="PaymentDate" placeholder="Payment Date" class="form-control">
+                    </div>
+                </div>
+            </div>
+
+            <div class="row ui-card-footer">
+                <div class="col-md-12">
+                    <div id="message" name="message"></div>
+                </div>
+            </div>
+            <div id="errormessage" class="ui-error"></div>
+        </div>
+
+        <!-- ================= Save All - deliberately outside the Billing card: it saves the whole
+              PO, not just the Billing fields ================= -->
+        <div class="row mt-3 mb-4" style="text-align:center;">
+            <button type="button" id="btnSave" name="btnSave" class="btn btn-primary" onclick="SaveData();">
+                <span class="glyphicon glyphicon-floppy-disk"></span>Save All
+            </button>
+        </div>
+
+    </form> <!-- /POForm -->
+
+    <!-- ================= Approval ================= -->
+    <div class="ui-card">
+        <div class="ui-card-title"><span class="glyphicon glyphicon-ok-circle"></span>Approval Status</div>
         <div class="row">
-            <div class="form-group col-md-6">
-                <label for="Rate" class="col-sm-3 control-label">Bill Amount</label>
-                <div class="col-sm-6">
-                    <input type="text" name="BillAmount" id="BillAmount" placeholder="Bill Amount" class="form-control">
-                </div>
-            </div>
-            <div class="form-group col-md-6">
-                <label for="Rate" class="col-sm-3 control-label">Bill No & Date</label>
-                <div class="col-sm-6">
-                    <input type="text" name="BillNoAndDate" id="BillNoAndDate" placeholder="Bill No And Date" class="form-control">
-                </div>
+            <div class="col-md-12" style="display:flex; align-items:center; gap:15px;">
+                <span class="ui-inline-label">Approval Status:</span>
+                <span class="ui-badge" id="ApprovalStatus" title="Approval status of this PO"></span>
+                <button type="button" id="ApproverButton" name="ApproverButton" class="btn btn-default btn-xs" onclick="RequestApproval();" title="Request for Approval">
+                    <span class="glyphicon glyphicon-bell"></span>Request Approval
+                </button>
             </div>
         </div>
+    </div>
+
+    <!-- ================= Admin Actions (Delete PO / Approve PO) ================= -->
+    <div class="ui-card">
+        <div class="ui-card-title"><span class="glyphicon glyphicon-lock"></span>Admin Actions</div>
         <div class="row">
-            <div class="form-group col-md-6">
-                <label for="Rate" class="col-sm-3 control-label">Payment Date</label>
-                <div class="col-sm-6">
-                    <input type="text" name="PaymentDate" autocomplete="off" id="PaymentDate" placeholder="Payment Date" class="form-control">
-                </div>
+            <div class="col-md-3">
+                <input type="password" size="4" name="POAdminCode" id="POAdminCode" placeholder="Admin Code"
+                       autocomplete="new-password" class="form-control ui-input-sm">
             </div>
-            <div class="form-group col-md-6">
-                &nbsp;
+            <div class="col-md-3">
+                <button type="button" name="RemovePOButton" id="RemovePOButton" class="btn btn-danger" onclick="RemovePO();">
+                    <span class="glyphicon glyphicon-trash"></span>Delete PO
+                </button>
             </div>
         </div>
-        <div class="row text-center">
-            <input type="submit" id="btnSave" name="btnSave" value="Save All" onclick="SaveData();" />
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<input type="button" id="PrintButton" name="PrintButton" onclick="PrintPO();" value="Print PO" />
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<input type="button" id="ClearButton" name="ClearButton" onclick="ClearScreen();" value="Clear All" />
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<input type="button" id="ApproverButton" name="ApproverButton" onclick="RequestApproval();" value="Request for Approval" />
+        <div class="row mt-3">
+            <div class="col-md-3">
+                <input type="password" size="4" name="POApproverCode" id="POApproverCode" placeholder="Approver Code"
+                       autocomplete="new-password" class="form-control ui-input-sm">
+            </div>
+            <div class="col-md-3">
+                <button type="button" name="ApprovePOButton" id="ApprovePOButton" class="btn btn-success" onclick="ApprovePO();">
+                    <span class="glyphicon glyphicon-ok"></span>Approve PO
+                </button>
+            </div>
         </div>
-        <div id="errormessage" class="error">
-        </div>
-        <div id="message" name="message" class="success">
-        </div>
-    </form><!-- /form -->
+    </div>
+
 </div> <!-- ./container -->

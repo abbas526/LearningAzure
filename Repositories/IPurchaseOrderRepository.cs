@@ -12,5 +12,6 @@ namespace OrientalApplication.Repositories
         bool RemovePO(string poNumber);
         bool ApprovePO(string poNumber);
         bool SubmitForApproval(string poNumber);
+        bool PONumberExists(string poNumber);
     }
 }

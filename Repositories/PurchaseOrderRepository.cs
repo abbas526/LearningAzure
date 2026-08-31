@@ -379,5 +379,20 @@ namespace OrientalApplication.Repositories
                 return true;
             }
         }
+
+        // Checked regardless of IsActive - a soft-deleted PO still occupies its PONumber, so it
+        // must not be handed out again by GenerateNewPONumber.
+        public bool PONumberExists(string poNumber)
+        {
+            using (SQLiteConnection conn = new SQLiteConnection(connectionString))
+            {
+                conn.Open();
+
+                var count = conn.ExecuteScalar<int>(
+                    "SELECT COUNT(1) FROM PurchaseOrder WHERE PONumber=@PONumber",
+                    new { PONumber = poNumber });
+                return count > 0;
+            }
+        }
     }
 }
