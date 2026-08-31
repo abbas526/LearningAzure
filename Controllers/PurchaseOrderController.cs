@@ -322,5 +322,24 @@ namespace OrientalApplication.Controllers
             _purchaseOrderRepository.SubmitForApproval(poNumber);
             return Json("Success", JsonRequestBehavior.AllowGet);
         }
+
+        // Generates a unique PO Number for today in the form "PO-DDMMYYYY-01". Only the trailing
+        // 2-digit sequence needs to be unique for the day (per CLAUDE.md's ~10-12 POs/day volume),
+        // so 01-99 is more than enough headroom.
+        [HttpGet]
+        public JsonResult GenerateNewPONumber()
+        {
+            string prefix = "PO-" + DateTime.Now.ToString("ddMMyyyy") + "-";
+
+            for (int seq = 1; seq <= 99; seq++)
+            {
+                string candidate = prefix + seq.ToString("D2");
+                if (!_purchaseOrderRepository.PONumberExists(candidate))
+                {
+                    return Json(candidate, JsonRequestBehavior.AllowGet);
+                }
+            }
+            return Json("Error: Unable to generate a unique PO Number for today, please contact Admin", JsonRequestBehavior.AllowGet);
+        }
     }
 }

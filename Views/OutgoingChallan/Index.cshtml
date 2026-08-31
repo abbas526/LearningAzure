@@ -1,9 +1,14 @@
-﻿@{
+@{
     ViewBag.Title = "Index";
+    // Cache-bust ModernUI.css against its own last-write time, so a browser that already cached an
+    // older copy (same URL every deploy otherwise) is forced to re-fetch it after any CSS edit,
+    // instead of silently keeping stale styling until a manual hard refresh.
+    var modernUiCssVersion = System.IO.File.GetLastWriteTime(Server.MapPath("~/Content/ModernUI.css")).Ticks;
 }
 <script src="~/Scripts/jquery-3.4.1.js"></script>
 <link href="~/Scripts/jquery-ui-1.12.1.min.css" rel="stylesheet" />
 <link href="~/Content/Purchase.css" rel="stylesheet" />
+<link href="~/Content/ModernUI.css?v=@modernUiCssVersion" rel="stylesheet" />
 <script src="~/Scripts/jquery-ui-1.12.1.min.js"></script>
 <script src="~/Scripts/jquery.validate.min-1.19.js"></script>
 
@@ -56,6 +61,15 @@
 
          // Add the first row by default
     });
+
+    // Renumbers the "#" column so every row shows its current position - called after any
+    // insert or removal, rather than trying to compute the right number at insert time.
+    function RenumberPRTable() {
+        $('#PRTable tbody tr').each(function (idx) {
+            $(this).find('td').eq(0).text(idx + 1);
+        });
+    }
+
     function AddNew() {
         var c = $('#Company').val();
         if (c == '') {
@@ -82,15 +96,17 @@
     function PRAddToTable() {
         Id = Id + 1;
         var newRow = $("<tr>" +
-            "<td><textarea style='width: 24em' id='" + "ItemDescription_" + Id + "'/>" + "</td>" +
-            "<td><input type='text' style='width: 7em' id='" + "HSN_" + Id + "'/>" + "</td>" +
-            "<td><input type='number' style='width: 7em' size='8' id='" + "Quantity_" + Id + "'/>" + "</td>" +
-            "<td><input type='number' style='width: 7em' size='8' id='" + "Rate_" + Id + "'/>" + "</td>" +
-            "<td><input type='number' disabled='true' step='0.01' style='width: 7em' size='8' id='" + "Amount_" + Id + "'/>" +
-            "<a href='#' onclick='CalculateAmount(" + Id + ");' title='Amount Calculator' data-toggle='popover' data-trigger='focus' data-placement='right'><i class='glyphicon glyphicon-usd'></i></a>" +
-            "</td>" +
-            "<td><select style='width: 18em' id='" + "ProjectName_" + Id + "'></select></td>" +
-            "<td><input type='button' class='delete-button' value='Delete' style='width: 7em' size='8' id='" + "delete_" + Id + "' onclick='DeleteItem(" + Id + ")'/></td>" +
+            "<td class='row-num'></td>" +
+            "<td><textarea class='form-control' style='width: 20em' id='" + "ItemDescription_" + Id + "'></textarea></td>" +
+            "<td><input type='text' class='form-control' style='width: 7em' id='" + "HSN_" + Id + "'/>" + "</td>" +
+            "<td><input type='number' class='form-control' style='width: 7em' size='8' id='" + "Quantity_" + Id + "' onblur='CalculateAmount(" + Id + ");'/>" + "</td>" +
+            "<td><input type='number' class='form-control' style='width: 7em' size='8' id='" + "Rate_" + Id + "' onblur='CalculateAmount(" + Id + ");'/>" + "</td>" +
+            "<td><div class='amount-cell'>" +
+            "<input type='number' class='form-control' disabled='true' step='0.01' style='width: 7em' size='8' id='" + "Amount_" + Id + "'/>" +
+            "<a href='#' onclick='CalculateAmount(" + Id + ");' title='Amount Calculator'><span class='glyphicon glyphicon-usd'></span></a>" +
+            "</div></td>" +
+            "<td><select class='form-control' style='width: 18em' id='" + "ProjectName_" + Id + "'></select></td>" +
+            "<td><button type='button' class='delete-button btn btn-danger btn-xs' id='" + "delete_" + Id + "' onclick='DeleteItem(" + Id + ")'><span class='glyphicon glyphicon-trash'></span>Delete</button></td>" +
             "</tr>");
 
         // Append the new row to the table body
@@ -118,12 +134,10 @@
                 text: projectName    // Set the text to the same value
             }));
         }
-        $('#delete_1').hide();
+        RenumberPRTable();
     }
 
     function DeleteItem(id) {
-
-
 
         // Ask for confirmation before deleting
         var confirmation = window.confirm("Are you sure you want to delete this item?");
@@ -131,6 +145,7 @@
         if (confirmation) {
             // Remove the row with the corresponding ID
             $("#ItemDescription_" + id).closest("tr").remove();
+            RenumberPRTable();
         }
     }
 
@@ -145,19 +160,27 @@
 
     function FillItemsArray() {
         var outgoingChallanItems = new Array();
-        var ct = 1;
-        $("#PRTable TBODY TR").each(function () {
+        var challanNumber = $('#ChallanNumber').val();
+        // Read each row's fields relative to that row (by field, not by rebuilding
+        // "<Field>_<n>" from a counter that starts at 1 every time). The counter used
+        // to assume DOM row order always lines up with the "Id" suffix each field was
+        // created with, but that "Id" is a page-lifetime counter that never resets
+        // (ClearScreen/AddNew don't reset it) and skips numbers whenever a row is
+        // deleted - so after loading a challan, deleting a row, or starting a second
+        // new challan without a full page refresh, the reconstructed id pointed at
+        // nothing, row.find() returned an empty set, .val() came back undefined, and
+        // JSON.stringify silently dropped that field - saving blank items.
+        $("#PRTable tbody tr").each(function () {
             var row = $(this);
             var outgoingChallanItem = {};
-            outgoingChallanItem.ChallanNumber = $('#ChallanNumber').val();
-            outgoingChallanItem.ItemDescription = row.find("#ItemDescription_" + ct).val();
-            outgoingChallanItem.HSN = row.find("#HSN_" + ct).val();
-            outgoingChallanItem.Quantity = row.find("#Quantity_" + ct).val();
-            outgoingChallanItem.Rate = row.find("#Rate_" + ct).val();
-            outgoingChallanItem.Amount = row.find("#Amount_" + ct).val();
-            outgoingChallanItem.ProjectName = row.find("#ProjectName_" + ct).val();
+            outgoingChallanItem.ChallanNumber = challanNumber;
+            outgoingChallanItem.ItemDescription = row.find("textarea[id^='ItemDescription_']").val();
+            outgoingChallanItem.HSN = row.find("input[id^='HSN_']").val();
+            outgoingChallanItem.Quantity = row.find("input[id^='Quantity_']").val();
+            outgoingChallanItem.Rate = row.find("input[id^='Rate_']").val();
+            outgoingChallanItem.Amount = row.find("input[id^='Amount_']").val();
+            outgoingChallanItem.ProjectName = row.find("select[id^='ProjectName_']").val();
             outgoingChallanItems.push(outgoingChallanItem);
-            ct = ct + 1;
         });
         console.log(outgoingChallanItems);
 
@@ -323,21 +346,22 @@
                 $('#ReceivedDate').val(data.ReceivedDate);
                 $('#ReceivedComment').val(data.ReceivedComment);
                 $('#ValueOfMaterial').val(data.ValueOfMaterial);
-				$('#VendorGST').text(data.VendorGST);				
+				$('#VendorGST').text(data.VendorGST);
                 // Populate the table with data from the controller
                 var tbody = $('#PRTable tbody');
                 tbody.empty(); // Clear existing rows
                 var ctr = 1;
                 $.each(data.OutgoingChallanItems, function (index, item) {
                     var newRow = $('<tr>');
-                    newRow.append($('<td>').html('<textarea class="form-control"  Id="ItemDescription_' + ctr + '" rows="3">' + item.ItemDescription + '</textarea>'));
-                    newRow.append($('<td>').html('<input type="text" style="width: 7em"  Id="HSN_' + ctr + '" value="' + item.HSN  + '"/>'));
-                    newRow.append($('<td>').html('<input type="Number" size="8" style="width: 7em" Id="Quantity_' + ctr + '" value="' + item.Quantity + '"/>'));
-                    newRow.append($('<td>').html('<input type="Number" size="8" style="width: 7em" Id="Rate_' + ctr + '" value="' + item.Rate + '"/>'));
-                    newRow.append($('<td>').html('<input type="number" size="8" style="width: 7em" Id="Amount_' + ctr + '" disabled="true" value="' + item.Amount + '"/>'
-                        + '<a href="#" onclick="CalculateAmount(' + ctr + ');" title="Amount Calculator"><i class="glyphicon glyphicon-usd"></i></a>'));
-                    newRow.append($('<td>').html('<select style="width: 18em" Id="ProjectName_' + ctr + '" />'));
-                    newRow.append($('<td>').html('<input type="button" value="Delete"  onclick="DeleteItem('+ctr+')" Id=delete_' + ctr + ' >'   ));
+                    newRow.append($('<td>').addClass('row-num'));
+                    newRow.append($('<td>').html('<textarea class="form-control" style="width: 20em" Id="ItemDescription_' + ctr + '" rows="3">' + item.ItemDescription + '</textarea>'));
+                    newRow.append($('<td>').html('<input type="text" class="form-control" style="width: 7em"  Id="HSN_' + ctr + '" value="' + item.HSN  + '"/>'));
+                    newRow.append($('<td>').html('<input type="Number" class="form-control" size="8" style="width: 7em" Id="Quantity_' + ctr + '" value="' + item.Quantity + '" onblur="CalculateAmount(' + ctr + ');"/>'));
+                    newRow.append($('<td>').html('<input type="Number" class="form-control" size="8" style="width: 7em" Id="Rate_' + ctr + '" value="' + item.Rate + '" onblur="CalculateAmount(' + ctr + ');"/>'));
+                    newRow.append($('<td>').html('<div class="amount-cell"><input type="number" class="form-control" size="8" style="width: 7em" Id="Amount_' + ctr + '" disabled="true" value="' + item.Amount + '"/>'
+                        + '<a href="#" onclick="CalculateAmount(' + ctr + ');" title="Amount Calculator"><span class="glyphicon glyphicon-usd"></span></a></div>'));
+                    newRow.append($('<td>').html('<select class="form-control" style="width: 18em" Id="ProjectName_' + ctr + '" />'));
+                    newRow.append($('<td>').html('<button type="button" class="delete-button btn btn-danger btn-xs" onclick="DeleteItem('+ctr+')" Id=delete_' + ctr + '><span class="glyphicon glyphicon-trash"></span>Delete</button>'   ));
                     tbody.append(newRow);
 
                     var projectDropdown = newRow.find("select");
@@ -362,9 +386,9 @@
                     }
 
                     ctr = ctr + 1;
-                    $('#delete_1').hide();
                 });
                 Id = ctr-1;
+                RenumberPRTable();
             },
             error: function () {
                 alert('Error fetching data from the controller.');
@@ -405,6 +429,7 @@
         $('#PRTable tr:first input[type="number"]').val(null);
         // Reset dropdown values to the first option in the first row
         $('#PRTable tr:first').prop('selectedIndex', 0);
+        RenumberPRTable();
     }
 
     function LoadGST() {
@@ -413,7 +438,7 @@
 			type: 'GET',
 			data: { vendorName: $("#Vendor").val() },
             success: function (data) {
-                
+
                 $('#VendorGST').text(data);
 			},
 			error: function () {
@@ -422,136 +447,186 @@
 		});
 	}
 </script>
-<div class="container">
-	<form class="form-horizontal" role="form" name="ChallanForm" id="ChallanForm">
-		<h2>Outgoing Challan</h2>
-		<div class="row">
-			<div class="form-group col-md-6">
-				<label for="PR" class="col-sm-3 control-label required">Company</label>
-				<div class="col-sm-6">
-					<select name="Company" id="Company" class="form-control" required="required">
-					</select>
-				</div>
-			</div>
-			<div class="form-group col-md-6">
-				<label for="email" class="col-sm-3 control-label required">Vendor Name</label>
-				<div class="col-sm-6">
-					<select class="form-control" id="Vendor" name="Vendor" required="required" onchange="LoadGST();"></select>
-				</div>
-			</div>
-		</div>
+<div class="container mt-4 ui-modern">
 
-		<div class="row">
-			<div class="form-group col-md-6">
-                &nbsp;
-			</div>
-			<div class="form-group col-md-6">
-				<label for="email" class="col-sm-3 control-label">Vendor GST</label>
-				<div class="col-sm-6">
-					<span id="VendorGST" name="VendorGST" style="color:blue"></span>
-				</div>
-			</div>
-		</div>
+    <div class="ui-page-title">
+        <span class="glyphicon glyphicon-send"></span>Outgoing Challan Details
+    </div>
 
-		<div class="row">
-			<div class="form-group col-md-6">
-				<label for="PR" class="col-sm-3 control-label required">Challan Number</label>
-				<div class="col-sm-4">
-					<input type="text" id="ChallanNumber" required="required" autocomplete="off" name="ChallanNumber" data-required="true" placeholder="Challan Number" class="form-control" autofocus>
-				</div>
-				<div class="col-sm-2">
-					<a href="#" onclick="PrintChallan();" title="Print PO" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
-						<i class="glyphicon glyphicon-print"></i>
-					</a>&nbsp;
-					<a href="#" onclick="LoadData();" title="Search Challan" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
-						<i class="glyphicon glyphicon-search"></i>
-					</a>&nbsp;
-					<a href="#" onclick="AddNew();" title="Add Challan" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
-						<i class="glyphicon glyphicon-plus"></i>
-					</a>&nbsp;
-				</div>
-			</div>
-			<div class="form-group col-md-6">
-				<label for="Admin Code" class="col-sm-3 control-label required">Challan Date</label>
-				<div class="col-sm-6">
-					<input type="text" name="ChallanDate" id="ChallanDate" autocomplete="off" readonly="readonly" required="required" placeholder="Challan Date" class="form-control" />
-				</div>
-			</div>
-		</div>
+    <form class="form-horizontal" role="form" name="ChallanForm" id="ChallanForm" autocomplete="off">
 
-		<div class="row">
-			<div class="form-group col-md-6">
-				<label for="email" class="col-sm-3 control-label required">Vehicle Number</label>
-				<div class="col-sm-6">
-					<input type="text" name="VehicleNumber" id="VehicleNumber" required="required" placeholder="Vehicle Number" class="form-control" />
-				</div>
-			</div>
-			<div class="form-group col-md-6">
-				<label for="Specs" class="col-sm-3 control-label">EWay Bill No</label>
-				<div class="col-sm-6">
-					<input type="text" id="EWayBillNo" name="EWayBillNo" placeholder="EWay Bill No" class="form-control">
-				</div>
-			</div>
-		</div>
-		<div class="row">
-			<div class="form-group col-md-6">
-				<label for="email" class="col-sm-3 control-label">Comment</label>
-				<div class="col-sm-6">
-					<textarea rows="3" cols="30" name="Comment" id="Comment" placeholder="Comment" class="form-control"></textarea>
-				</div>
-			</div>
-			<div class="form-group col-md-6">
-				<label for="Specs" class="col-sm-3 control-label required">Value of Material</label>
-				<div class="col-sm-6">
-					<input type="number" id="ValueOfMaterial" name="ValueOfMaterial" required="required" placeholder="Value Of Material" class="form-control">
-				</div>
-			</div>
-		</div>
-		<div class="row">
-			<div class="form-group col-md-12">
-				<table id="PRTable" name="PRTable" class="table table-bordered table-condensed table-striped">
-					<thead>
-						<tr style="background-color:lightblue">
-							<th>Item Description</th>
-							<th>HSN</th>
-							<th>Quantity</th>
-							<th>Rate</th>
-							<th>Amount</th>
-							<th>Project Name</th>
-							<th><input type="Button" id="btnAddItem" name="btnAddItem" onclick="PRAddToTable()" value="Add Item" /></th>
-						</tr>
-					</thead>
-					<tbody>
-					</tbody>
-				</table>
-			</div>
-		</div>
+        <!-- ================= Search / Manage Challan ================= -->
+        <div class="ui-card">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-search"></span>Find Challan</div>
 
-		<br />
-		<div class="row">
-			<div class="form-group col-md-6">
-				<label for="email" class="col-sm-3 control-label">Item(s) Received Date</label>
-				<div class="col-sm-6">
-					<input type="text" id="ReceivedDate" name="ReceivedDate" required="required" placeholder="Received Date" class="form-control">
-				</div>
-			</div>
-			<div class="form-group col-md-6">
-				<label for="Specs" class="col-sm-3 control-label">Notes for Items Received</label>
-				<div class="col-sm-6">
-					<textarea rows="2" cols="30" name="ReceivedComment" id="ReceivedComment" class="form-control"></textarea>
-				</div>
-			</div>
-		</div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="ChallanNumber" class="form-label required">Challan Number</label>
+                        <div class="input-group">
+                            <input type="text" id="ChallanNumber" required="required" autocomplete="off" name="ChallanNumber" data-required="true" placeholder="Challan Number" class="form-control ui-input-md" autofocus>
+                            <span class="input-group-btn">
+                                <button class="btn btn-info" type="button" onclick="LoadData();" title="Load this Challan">
+                                    <span class="glyphicon glyphicon-search"></span>Load
+                                </button>
+                                <button class="btn btn-default" type="button" onclick="PrintChallan();" title="Print Challan">
+                                    <span class="glyphicon glyphicon-print"></span>
+                                </button>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" style="visibility:hidden;">&nbsp;</label>
+                    <div style="display:flex; align-items:center; gap:15px;">
+                        <button type="button" id="ClearButton" name="ClearButton" class="btn btn-default" onclick="ClearScreen();" title="Clear everything and return to a fresh screen">
+                            <span class="glyphicon glyphicon-erase"></span>Clear All
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-		<div class="row text-center">
-			<input type="button" id="btnSave" name="btnSave" value="Save All" onclick="ChallanSave();" />
-			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<input type="button" id="PrintButton" name="PrintButton" onclick="PrintChallan();" value="Print" />
-			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<input type="button" id="ClearButton" name="ClearButton" onclick="ClearScreen();" value="Clear All" />
-		</div>
-		<div id="errormessage" class="error">
-		</div>
-		<div id="message" name="message" class="success">
-		</div>
-	</form>
+        <!-- ================= Challan Details ================= -->
+        <div class="ui-card ui-narrow-fields">
+            <div class="ui-card-title" style="display:flex; align-items:center;">
+                <span class="glyphicon glyphicon-list-alt"></span>Challan Details
+                <button type="button" id="AddNewButton" name="AddNewButton" class="btn btn-default btn-sm" style="margin-left:28px;" onclick="AddNew();" title="Generate a new Challan Number for the selected Company and start a fresh Challan">
+                    <span class="glyphicon glyphicon-plus"></span>New Challan
+                </button>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="Company" class="form-label required">Company</label>
+                        <select name="Company" id="Company" class="form-control" required="required">
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="ChallanDate" class="form-label required">Challan Date</label>
+                        <input type="text" name="ChallanDate" id="ChallanDate" autocomplete="off" readonly="readonly" required="required" placeholder="Select Date" class="form-control" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="Vendor" class="form-label required">Vendor Name</label>
+                        <select class="form-control" id="Vendor" name="Vendor" required="required" onchange="LoadGST();"></select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Vendor GST</label>
+                    <div>
+                        <span id="VendorGST" name="VendorGST" class="ui-badge"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="VehicleNumber" class="form-label required">Vehicle Number</label>
+                        <input type="text" name="VehicleNumber" id="VehicleNumber" required="required" placeholder="Vehicle Number" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="EWayBillNo" class="form-label">EWay Bill No</label>
+                        <input type="text" id="EWayBillNo" name="EWayBillNo" placeholder="EWay Bill No" class="form-control">
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="Comment" class="form-label">Comment</label>
+                        <textarea rows="3" name="Comment" id="Comment" placeholder="Comment" class="form-control"></textarea>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="ValueOfMaterial" class="form-label required">Value of Material</label>
+                        <input type="number" id="ValueOfMaterial" name="ValueOfMaterial" required="required" placeholder="Value Of Material" class="form-control">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= Items for this Challan ================= -->
+        <div class="ui-card">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-th-list"></span>Items for this Challan</div>
+
+            <div class="table-responsive">
+                <table id="PRTable" name="PRTable" class="table table-bordered table-condensed table-striped ui-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Item Description</th>
+                            <th>HSN</th>
+                            <th>Quantity</th>
+                            <th>Rate</th>
+                            <th>Amount</th>
+                            <th>Project Name</th>
+                            <th style="width:110px;">
+                                <button type="button" class="btn btn-success btn-xs" id="btnAddItem" name="btnAddItem" onclick="PRAddToTable()">
+                                    <span class="glyphicon glyphicon-plus"></span>Add Item
+                                </button>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ================= Item(s) Received ================= -->
+        <div class="ui-card ui-narrow-fields">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-inbox"></span>Item(s) Received</div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="ReceivedDate" class="form-label">Item(s) Received Date</label>
+                        <input type="text" id="ReceivedDate" name="ReceivedDate" autocomplete="off" readonly="readonly" placeholder="Select Date" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="ReceivedComment" class="form-label">Notes for Items Received</label>
+                        <textarea rows="2" name="ReceivedComment" id="ReceivedComment" class="form-control"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row ui-card-footer">
+                <div class="col-md-12">
+                    <div id="message" name="message"></div>
+                </div>
+            </div>
+            <div id="errormessage"></div>
+        </div>
+
+        <!-- ================= Save / Print / Clear - deliberately outside the card above: it acts on
+              the whole Challan, not just the Item(s) Received fields ================= -->
+        <div class="row mt-3 mb-4" style="text-align:center;">
+            <button type="button" id="btnSave" name="btnSave" class="btn btn-primary" onclick="ChallanSave();">
+                <span class="glyphicon glyphicon-floppy-disk"></span>Save All
+            </button>
+            &nbsp;&nbsp;
+            <button type="button" id="PrintButton" name="PrintButton" class="btn btn-default" onclick="PrintChallan();">
+                <span class="glyphicon glyphicon-print"></span>Print
+            </button>
+            &nbsp;&nbsp;
+            <button type="button" id="ClearAllButton" name="ClearAllButton" class="btn btn-default" onclick="ClearScreen();">
+                <span class="glyphicon glyphicon-erase"></span>Clear All
+            </button>
+        </div>
+    </form>
 </div>
-

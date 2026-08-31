@@ -255,14 +255,17 @@
 /* -- Softer red for a destructive-but-routine action (e.g. Delete PR) - a light pastel red
       instead of Bootstrap's alarming brick-red .btn-danger; dark text for contrast on the
       light background ---------------------------------------------------------------------- */
-.ui-modern #RemovePRButton {
+.ui-modern #RemovePRButton,
+.ui-modern #RemovePOButton {
     background-color: #f6d3d2;
     border-color: #ecb7b5;
     color: #8a3230;
 }
 
     .ui-modern #RemovePRButton:hover,
-    .ui-modern #RemovePRButton:focus {
+    .ui-modern #RemovePRButton:focus,
+    .ui-modern #RemovePOButton:hover,
+    .ui-modern #RemovePOButton:focus {
         background-color: #f0bfbd;
         border-color: #e5a7a5;
         color: #8a3230;
@@ -299,6 +302,19 @@
     font-weight: 600;
     font-size: 14px;
 }
+
+/* -- Amount cell in the Items table: the Amount input is a block-level .form-control, so
+      without this the $ calculator icon after it wraps onto its own line instead of sitting
+      on the same row, right after the Amount value. -------------------------------------- */
+.ui-modern .amount-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+    .ui-modern .amount-cell .form-control {
+        margin-bottom: 0;
+    }
 
 /* -- Tables --------------------------------------------------------------------------- */
 .ui-modern .ui-table {
@@ -382,6 +398,49 @@
         font-weight: 600;
         margin-bottom: 6px;
         display: block;
+    }
+
+/* -- Project chip list (Projects Loaded) - each project loaded onto this PO shown as its own
+      small removable chip instead of a plain textbox, so a single project can be pulled back out
+      (with its PR rows) without clearing the other loaded projects ------------------------------ */
+.ui-modern .ui-project-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    min-height: 38px;
+    padding: 4px 0;
+}
+
+/* Light-blue, button-like pill - background + border + shadow give it a pressable look, with the
+   remove (x) docked at its trailing edge. margin-right is a belt-and-braces fallback alongside the
+   list's flex `gap`, so chips still read as visually separate even if `gap` isn't applied. */
+.ui-modern .ui-project-chip {
+    display: inline-flex;
+    align-items: center;
+    background: #d9ecfb;
+    border: 1px solid #a9d2f0;
+    color: #17436b;
+    border-radius: 5px;
+    padding: 6px 8px 6px 12px;
+    margin-right: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.07);
+}
+
+.ui-modern .ui-project-chip-remove {
+    margin-left: 10px;
+    cursor: pointer;
+    color: #a12622;
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 2px;
+}
+
+    .ui-modern .ui-project-chip-remove:hover {
+        color: #6e1815;
     }
 
 /* -- Responsive tweaks ------------------------------------------------------------- */
