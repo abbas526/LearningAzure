@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oriental Admin Tool - Summary</title>
+
+    <link href="Content/bootstrap.css" rel="stylesheet" />
+    <link href="Content/site.css" rel="stylesheet" />
+    <link href="Content/ModernUI.css" rel="stylesheet" />
+
+    <style>
+        /* ===================== Top navigation bar - copied from Views/Shared/_Layout.cshtml so
+           this static summary page matches every other screen's header exactly. ===================== */
+        .submenu {
+            display: none;
+            position: absolute;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            z-index: 1;
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+
+            .submenu li {
+                display: block;
+                padding: 10px;
+            }
+
+        .nav li:hover .submenu {
+            display: block;
+        }
+
+        .navbar-inverse {
+            background-color: #1e4b3a;
+            border-color: #123328;
+        }
+
+            .navbar-inverse .navbar-brand,
+            .navbar-inverse .navbar-nav > li > a {
+                color: #ffffff;
+            }
+
+                .navbar-inverse .navbar-brand:hover,
+                .navbar-inverse .navbar-brand:focus,
+                .navbar-inverse .navbar-nav > li > a:hover,
+                .navbar-inverse .navbar-nav > li > a:focus {
+                    color: #ffffff;
+                    background-color: #163a2d;
+                }
+
+            .navbar-inverse .navbar-nav > .active > a,
+            .navbar-inverse .navbar-nav > .active > a:hover,
+            .navbar-inverse .navbar-nav > .active > a:focus,
+            .navbar-inverse .navbar-nav > .open > a,
+            .navbar-inverse .navbar-nav > .open > a:hover,
+            .navbar-inverse .navbar-nav > .open > a:focus {
+                color: #ffffff;
+                background-color: #123328;
+            }
+
+            .navbar-inverse .navbar-toggle {
+                border-color: #163a2d;
+            }
+
+                .navbar-inverse .navbar-toggle:hover,
+                .navbar-inverse .navbar-toggle:focus {
+                    background-color: #163a2d;
+                }
+
+                .navbar-inverse .navbar-toggle .icon-bar {
+                    background-color: #ffffff;
+                }
+
+            .navbar-inverse .navbar-collapse,
+            .navbar-inverse .navbar-form {
+                border-color: #123328;
+            }
+
+        .navbar.navbar-inverse > .container {
+            margin-left: 0;
+            padding-left: 24px;
+        }
+
+        .navbar-inverse .navbar-collapse {
+            padding-left: 6px;
+        }
+
+        .navbar-brand-wrap {
+            float: left;
+            display: flex;
+            align-items: center;
+        }
+
+        .navbar-logo {
+            height: 28px;
+            width: auto;
+            margin-right: 10px;
+        }
+
+        .navbar-brand-wrap h4 {
+            margin: 10px 0;
+        }
+
+        /* ===================== Summary page content ===================== */
+
+        /* A little more breathing room than the dense data-entry forms elsewhere in the app -
+           this page is meant to be read, not filled in. */
+        .ui-modern.ui-summary {
+            font-size: 15px;
+        }
+
+            .ui-modern.ui-summary p {
+                font-size: 15px;
+                line-height: 1.7;
+                color: #46525e;
+                margin-bottom: 10px;
+            }
+
+            .ui-modern.ui-summary .ui-card-title {
+                font-size: 16px;
+            }
+
+        .ui-summary-lead {
+            font-size: 16px !important;
+        }
+
+        /* Sequential workflow strip: PR -> PO -> Challan -> Bill Payment */
+        .ui-flow-strip {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: stretch;
+            gap: 0;
+        }
+
+        .ui-flow-step {
+            flex: 1 1 200px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: #f7fafd;
+            border: 1px solid #e6e9ed;
+            border-radius: 8px;
+            padding: 16px 18px;
+            text-decoration: none;
+            transition: box-shadow .15s ease, border-color .15s ease, transform .15s ease;
+        }
+
+            .ui-flow-step:hover, .ui-flow-step:focus {
+                text-decoration: none;
+                border-color: #a9d2f0;
+                box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+                transform: translateY(-1px);
+            }
+
+            .ui-flow-step .ui-flow-icon {
+                flex: 0 0 auto;
+                width: 42px;
+                height: 42px;
+                border-radius: 50%;
+                background: #1f4e79;
+                color: #fff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 18px;
+            }
+
+            .ui-flow-step .ui-flow-text .ui-flow-step-no {
+                font-size: 11px;
+                font-weight: 700;
+                letter-spacing: .5px;
+                text-transform: uppercase;
+                color: #7c8a97;
+                display: block;
+                margin-bottom: 2px;
+            }
+
+            .ui-flow-step .ui-flow-text strong {
+                display: block;
+                font-size: 15px;
+                color: #1f4e79;
+            }
+
+            .ui-flow-step .ui-flow-text span.ui-flow-desc {
+                display: block;
+                font-size: 12.5px;
+                color: #6d7a86;
+                margin-top: 2px;
+            }
+
+        .ui-flow-arrow {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            color: #b6c1cb;
+            font-size: 18px;
+        }
+
+        @media (max-width: 991px) {
+            .ui-flow-arrow {
+                width: 100%;
+                transform: rotate(90deg);
+                padding: 4px 0;
+            }
+        }
+
+        /* Clickable module cards, laid out in a responsive grid */
+        .ui-module-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+            gap: 16px;
+        }
+
+        .ui-module-card {
+            display: block;
+            background: #fff;
+            border: 1px solid #e6e9ed;
+            border-radius: 8px;
+            padding: 18px 20px;
+            text-decoration: none;
+            color: inherit;
+            transition: box-shadow .15s ease, border-color .15s ease, transform .15s ease;
+        }
+
+            .ui-module-card:hover, .ui-module-card:focus {
+                text-decoration: none;
+                color: inherit;
+                border-color: #a9d2f0;
+                box-shadow: 0 4px 14px rgba(0,0,0,0.09);
+                transform: translateY(-2px);
+            }
+
+            .ui-module-card .glyphicon {
+                font-size: 20px;
+                color: #1f6fd1;
+                margin-bottom: 10px;
+                display: inline-block;
+            }
+
+            .ui-module-card h4 {
+                font-size: 15.5px;
+                font-weight: 600;
+                color: #1f4e79;
+                margin: 0 0 6px;
+            }
+
+            .ui-module-card p {
+                font-size: 13.5px;
+                color: #6d7a86;
+                margin: 0;
+                line-height: 1.5;
+            }
+
+        .ui-summary-group-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            color: #98a2ad;
+            font-weight: 700;
+            margin: 22px 0 12px;
+        }
+
+            .ui-summary-group-label:first-child {
+                margin-top: 0;
+            }
+    </style>
+</head>
+<body>
+    <div class="navbar navbar-inverse navbar-fixed-top">
+        <div class="container">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a href="AdminTool.html" class="navbar-brand-wrap" style="text-decoration:none;">
+                    <img src="Images/Logo.jpg" alt="Oriental" class="navbar-logo" />
+                    <h4>Oriental Admin Tool</h4>
+                </a>
+            </div>
+            <div class="navbar-collapse collapse">
+                <ul class="nav navbar-nav">
+                    <li><a href="PurchaseOrder">Purchase Order</a></li>
+                    <li><a href="PurchaseRequisition">Purchase Requisition</a></li>
+                    <li><a href="OutgoingChallan">Outgoing Challan</a></li>
+                    <li><a href="BillPayment">Vendor Payment</a></li>
+                    <li class="nav-item-has-submenu">
+                        <a href="Report">More</a>
+                        <ul class="submenu">
+                            <li><a href="BillPayment/VendorPaymentDashBoard">VendorPayment DashBoard</a></li>
+                            <li><a href="Vendor">Vendor</a></li>
+                            <li><a href="ProjectMaster">Project</a></li>
+                            <li><a href="Report">Reports</a></li>
+                            <li><a href="Item">Item</a></li>
+                        </ul>
+                    </li>
+                    <li><a href="Accounts/Logout">Logout</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="container body-content" id="powered" name="powered">
+        <div class="container mt-4 ui-modern ui-summary">
+
+            <div class="ui-page-title">
+                <span class="glyphicon glyphicon-home"></span>Oriental Admin Tool &mdash; Application Summary
+            </div>
+
+            <!-- ================= What this application does ================= -->
+            <div class="ui-card">
+                <div class="ui-card-title"><span class="glyphicon glyphicon-info-sign"></span>About This Application</div>
+                <p class="ui-summary-lead">
+                    OrientalApplication is Oriental's internal tool for managing the company's purchase
+                    and procurement workflow, from the moment material is requested through to the vendor
+                    being paid for it.
+                </p>
+                <p>
+                    A purchasing cycle starts as a <strong>Purchase Requisition</strong> raised for a project,
+                    is converted into a <strong>Purchase Order</strong> sent to a vendor, is tracked on arrival
+                    with an <strong>Outgoing Challan</strong>, and is closed out by recording the vendor's
+                    <strong>Bill and Payment</strong>. Alongside this core flow, the application also maintains
+                    supporting master data &mdash; Vendors, Items and Projects &mdash; and provides reporting and
+                    dashboard views across all of the above.
+                </p>
+            </div>
+
+            <!-- ================= Purchase workflow ================= -->
+            <div class="ui-card">
+                <div class="ui-card-title"><span class="glyphicon glyphicon-random"></span>Purchase Workflow</div>
+                <div class="ui-flow-strip">
+                    <a class="ui-flow-step" href="PurchaseRequisition" title="Raise or manage a Purchase Requisition">
+                        <span class="ui-flow-icon glyphicon glyphicon-file"></span>
+                        <span class="ui-flow-text">
+                            <span class="ui-flow-step-no">Step 1</span>
+                            <strong>Purchase Requisition</strong>
+                            <span class="ui-flow-desc">Request material for a project</span>
+                        </span>
+                    </a>
+                    <span class="ui-flow-arrow glyphicon glyphicon-menu-right"></span>
+                    <a class="ui-flow-step" href="PurchaseOrder" title="Create or manage a Purchase Order">
+                        <span class="ui-flow-icon glyphicon glyphicon-shopping-cart"></span>
+                        <span class="ui-flow-text">
+                            <span class="ui-flow-step-no">Step 2</span>
+                            <strong>Purchase Order</strong>
+                            <span class="ui-flow-desc">Order the material from a vendor</span>
+                        </span>
+                    </a>
+                    <span class="ui-flow-arrow glyphicon glyphicon-menu-right"></span>
+                    <a class="ui-flow-step" href="OutgoingChallan" title="Record an Outgoing Challan">
+                        <span class="ui-flow-icon glyphicon glyphicon-send"></span>
+                        <span class="ui-flow-text">
+                            <span class="ui-flow-step-no">Step 3</span>
+                            <strong>Outgoing Challan</strong>
+                            <span class="ui-flow-desc">Track material dispatch and receipt</span>
+                        </span>
+                    </a>
+                    <span class="ui-flow-arrow glyphicon glyphicon-menu-right"></span>
+                    <a class="ui-flow-step" href="BillPayment" title="Record a Vendor Bill and Payment">
+                        <span class="ui-flow-icon glyphicon glyphicon-credit-card"></span>
+                        <span class="ui-flow-text">
+                            <span class="ui-flow-step-no">Step 4</span>
+                            <strong>Vendor Bill &amp; Payment</strong>
+                            <span class="ui-flow-desc">Bill the vendor and record payment</span>
+                        </span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- ================= All modules ================= -->
+            <div class="ui-card">
+                <div class="ui-card-title"><span class="glyphicon glyphicon-th-large"></span>All Modules</div>
+
+                <div class="ui-summary-group-label">Purchase Cycle</div>
+                <div class="ui-module-grid">
+                    <a class="ui-module-card" href="PurchaseRequisition">
+                        <span class="glyphicon glyphicon-file"></span>
+                        <h4>Purchase Requisition</h4>
+                        <p>Raise and manage material requisitions for a project.</p>
+                    </a>
+                    <a class="ui-module-card" href="PurchaseOrder">
+                        <span class="glyphicon glyphicon-shopping-cart"></span>
+                        <h4>Purchase Order</h4>
+                        <p>Convert requisitions into Purchase Orders for a vendor.</p>
+                    </a>
+                    <a class="ui-module-card" href="OutgoingChallan">
+                        <span class="glyphicon glyphicon-send"></span>
+                        <h4>Outgoing Challan</h4>
+                        <p>Record challans and track receipt of ordered material.</p>
+                    </a>
+                    <a class="ui-module-card" href="BillPayment">
+                        <span class="glyphicon glyphicon-credit-card"></span>
+                        <h4>Vendor Payment</h4>
+                        <p>Log vendor bills and record payments against them.</p>
+                    </a>
+                    <a class="ui-module-card" href="BillPayment/VendorPaymentDashBoard">
+                        <span class="glyphicon glyphicon-dashboard"></span>
+                        <h4>Vendor Payment Dashboard</h4>
+                        <p>Summary view of vendor payments across the company.</p>
+                    </a>
+                </div>
+
+                <div class="ui-summary-group-label">Master Data &amp; Reporting</div>
+                <div class="ui-module-grid">
+                    <a class="ui-module-card" href="Vendor">
+                        <span class="glyphicon glyphicon-briefcase"></span>
+                        <h4>Vendor</h4>
+                        <p>Maintain the list of vendors used across Purchase Orders.</p>
+                    </a>
+                    <a class="ui-module-card" href="ProjectMaster">
+                        <span class="glyphicon glyphicon-folder-open"></span>
+                        <h4>Project</h4>
+                        <p>Maintain the projects requisitions and orders are raised for.</p>
+                    </a>
+                    <a class="ui-module-card" href="Item">
+                        <span class="glyphicon glyphicon-tags"></span>
+                        <h4>Item</h4>
+                        <p>Maintain the item catalogue used across the purchase cycle.</p>
+                    </a>
+                    <a class="ui-module-card" href="Report">
+                        <span class="glyphicon glyphicon-stats"></span>
+                        <h4>Reports</h4>
+                        <p>Export and review data across requisitions, orders and bills.</p>
+                    </a>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</body>
+</html>

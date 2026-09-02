@@ -85,7 +85,11 @@
            Scoped to this specific navbar's own direct-child container, not the generic .container
            class used elsewhere on the page. */
         .navbar.navbar-inverse > .container {
-            padding-left: 8px;
+            /* Bootstrap centers .container with auto left/right margins, which is what pushed the
+               logo/title well away from the browser's left edge on wide screens. Left-align it
+               instead, with just enough padding to keep the brand off the very edge. */
+            margin-left: 0;
+            padding-left: 24px;
         }
 
         .navbar-inverse .navbar-collapse {
@@ -123,10 +127,10 @@
                     <span class="icon-bar"></span>
                     <span class="icon-bar"></span>
                 </button>
-                <div class="navbar-brand-wrap">
+                <a href="@Url.Content("~/AdminTool.html")" class="navbar-brand-wrap" style="color:inherit; text-decoration:none;" title="Application Summary">
                     <img src="~/Images/Logo.jpg" alt="Oriental" class="navbar-logo" />
                     <h4>Oriental Admin Tool</h4>
-                </div>
+                </a>
             </div>
             <div class="navbar-collapse collapse">
                 <ul class="nav navbar-nav">

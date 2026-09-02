@@ -1,40 +1,19 @@
-﻿@{
+@{
 	ViewBag.Title = "Index";
+	// Cache-bust ModernUI.css against its own last-write time, so a browser that already cached an
+	// older copy (same URL every deploy otherwise) is forced to re-fetch it after any CSS edit,
+	// instead of silently keeping stale styling until a manual hard refresh.
+	var modernUiCssVersion = System.IO.File.GetLastWriteTime(Server.MapPath("~/Content/ModernUI.css")).Ticks;
 }
 <script src="~/Scripts/jquery-3.4.1.js"></script>
 <link href="~/Scripts/jquery-ui-1.12.1.min.css" rel="stylesheet" />
 <link href="~/Content/Purchase.css" rel="stylesheet" />
+<link href="~/Content/ModernUI.css?v=@modernUiCssVersion" rel="stylesheet" />
 <script src="~/Scripts/jquery-ui-1.12.1.min.js"></script>
 <script src="~/Scripts/jquery.validate.min-1.19.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+
 <script src="~/Scripts/form-validation.js"></script>
-<style>
-	/*	#result {
-		margin-top: 20px;
-		border: 1px solid #ccc;
-		padding: 10px;
-	}*/
 
-	.selected-value {
-		margin: 5px;
-		padding: 5px;
-		border: 1px solid #ddd;
-		background-color: #f9f9f9;
-	}
-	.remove-btn {
-		cursor: pointer;
-		color: red;
-		margin-left: 5px;
-	}
-
-	.remove-btn:hover {
-		text-decoration: underline;
-	}
-	.error {
-		color: red;
-		margin-top: 5px;
-	}
-</style>
 <script>
     var Id = 0;
     var ProjectNames;
@@ -492,6 +471,8 @@
         });
     }
 
+	// Renders each selected Challan Number as a removable chip, matching the "Projects Loaded"
+	// chip pattern used on the Purchase Order screen.
 	function AddToChallanList(val) {
 
 		if ($("#ChallanNo").val() === null || $("#ChallanNo").val() === '' || $("#ChallanNo").val() === 'undefined') {
@@ -507,13 +488,13 @@
 		}
 
 		if (selectedValues.indexOf(selectedValue) === -1) {
-			// Create a new child div with the selected value
-			var newChildDiv = $("<div>").addClass("selected-value").text(selectedValue + "  ");
+			// Create a new chip with the selected value
+			var newChildDiv = $("<span>").addClass("ui-project-chip").text(selectedValue);
 
 			// Add remove button
-			var removeBtn = $("<span>").addClass("glyphicon glyphicon-minus remove-btn");
+			var removeBtn = $("<span>").addClass("ui-project-chip-remove").html("&times;").attr("title", "Remove this Challan");
 			removeBtn.on("click", function () {
-				// Remove the corresponding div when remove button is clicked
+				// Remove the corresponding chip when remove button is clicked
 				newChildDiv.remove();
 				// Remove the value from the array
 				selectedValues = selectedValues.filter(function (value) {
@@ -521,10 +502,10 @@
 				});
 			});
 
-			// Append the remove button to the div
+			// Append the remove button to the chip
 			newChildDiv.append(removeBtn);
 
-			// Append the new child div to the result div
+			// Append the new chip to the list
 			$("#SelectedChallanList").append(newChildDiv);
 
 			// Add the selected value to the array
@@ -536,13 +517,6 @@
 			// Display error message if the value is a duplicate
 			$("#errorMessageForList").text("Value already selected. Please choose a different value.");
 		}
-
-
-		//// Create a new child div with the selected value
-		//var newChildDiv = $("<div>").addClass("selected-value").text(selectedValue);
-
-		//// Append the new child div to the result div
-		//$("#SelectedChallanList").append(newChildDiv);
 	}
 
 	function BillAddToTable(BillNo, BillDate, Amount, Company) {
@@ -560,182 +534,221 @@
 			"</tr>");
 	}
 </script>
-<div class="container">
-	<form class="form-horizontal" role="form" name="BillForm" id="BillForm">
-		<h2>Vendor Bills and Payment</h2>
-		<input type="hidden" name="ChallanNoList" id="ChallanNoList" />
-		<div class="row">
-			<div class="form-group col-md-6">
-				<label for="email" class="col-sm-3 control-label required">Vendor Name</label>
-				<div class="col-sm-6">
-					<select class="form-control" id="Vendor" name="Vendor" required="required"></select>
-				</div>
-			</div>
-			<div class="form-group col-md-6">
-				&nbsp;
-			</div>
-		</div>
-		<div>
-			<center><h5>--------------<b>Bill Section</b>--------------------</h5></center>
-		</div>
-		<div class="row">
-			<div class="form-group col-md-6">
-				<label for="email" class="col-sm-3 control-label required">Bill Number</label>
-				<div class="col-sm-6">
-					<input type="text" name="BillNo" id="BillNo" placeholder="Bill Number" class="form-control" />
-				</div>
-				<div class="col-sm-2">
-					<a href="#" onclick="LoadBillData($('#BillNo').val());" title="Search Challan" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
-				        <i class="glyphicon glyphicon-search"></i>
-			        </a>
-				</div>
-			</div>
-			<div class="form-group col-md-6">
-				<label for="Specs" class="col-sm-3 control-label required">Bill Date</label>
-				<div class="col-sm-6">
-					<input type="text" id="BillDate" name="BillDate" placeholder="Bill Date" class="form-control">
-				</div>
-			</div>
-		</div>
-		<div class="row">
-			<div class="form-group col-md-6">
-				<label for="email" class="col-sm-3 control-label required">Bill Amount</label>
-				<div class="col-sm-6">
-					<input type="number" id="BillAmount" name="BillAmount" placeholder="Bill Amount" class="form-control">
-				</div>
-			</div>
-			<div class="form-group col-md-6">
-				<label for="email" class="col-sm-3 control-label required">Company</label>
-				<div class="col-sm-6">
-					<select class="form-control" id="Company" name="Company" required="required">
-						<option value="">--Select--</option>
-						<option value="Fabritech">Oriental FabriTech</option>
-						<option value="Mechanical">Oriental Mechanical</option>
-					</select>
-				</div>
+<div class="container mt-4 ui-modern">
 
-			</div>
-		</div>
+    <div class="ui-page-title">
+        <span class="glyphicon glyphicon-credit-card"></span>Vendor Bills and Payment
+    </div>
 
-		<div class="row">
-			<div class="form-group col-md-6">
-				<label for="PR" class="col-sm-3 control-label required">O/S Challan Number</label>
-				<div class="col-sm-6">
-					<select class="form-control" id="ChallanNo" name="ChallanNo" required="required"></select>
-				</div>
-				<div class="col-sm-2">
-					<a href="#" onclick="AddToChallanList('default');" title="Search Challan" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
-						<i class="glyphicon glyphicon-plus"></i>
-					</a>
-				</div>
-			</div>
-			<div class="form-group col-md-6">
-				<div id="SelectedChallanList">
+    <form class="form-horizontal" role="form" name="BillForm" id="BillForm" autocomplete="off">
+        <input type="hidden" name="ChallanNoList" id="ChallanNoList" />
 
-				</div>
-				&nbsp;
-			</div>
-		</div>
+        <!-- ================= Vendor ================= -->
+        <div class="ui-card">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-user"></span>Select Vendor</div>
 
-		<div id="errorMessageForList" class="error"></div>
-		<div>
-			<div class="row text-center">
-				<input type="button" id="btnBillSave" name="btnBillSave" value="Save Bill" onclick="BillSave();" />
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="Vendor" class="form-label required">Vendor Name</label>
+                        <select class="form-control ui-input-md" id="Vendor" name="Vendor" required="required"></select>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-				&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<input type="button" id="ClearBillButton" name="ClearBillButton" onclick="ClearBillScreen();" value="Clear Bill Details" />
-			</div>
-			<center><h5>--------------<b>Payment Section</b>--------------------</h5></center>
-		</div>
-	</form>
-	<form class="form-horizontal" role="form" name="PaymentForm" id="PaymentForm">
-		<div>
-			<h5>--------------<b>Pending Bills Table </b>--------------------</h5>			
-		</div>
-		<div class="row">
-			<table id="PendingBillTable" name="PendingBillTable" class="table table-bordered table-condensed table-striped">
-				<thead>
-					<tr style="background-color:lightblue">
-						<th>Bill No</th>
-						<th>Bill Date</th>
-						<th>Amount</th>
-						<th>Company</th>
-						<th>Select</th>
-						<th>Full Payment</th>
-					</tr>
-				</thead>
-				<tbody>
-				</tbody>
-			</table>
+        <!-- ================= Bill Details ================= -->
+        <div class="ui-card ui-narrow-fields">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-list-alt"></span>Bill Details</div>
 
-		</div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="BillNo" class="form-label required">Bill Number</label>
+                        <div class="input-group">
+                            <input type="text" name="BillNo" id="BillNo" placeholder="Bill Number" class="form-control" />
+                            <span class="input-group-btn">
+                                <button class="btn btn-info" type="button" onclick="LoadBillData($('#BillNo').val());" title="Load this Bill">
+                                    <span class="glyphicon glyphicon-search"></span>Load
+                                </button>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="BillDate" class="form-label required">Bill Date</label>
+                        <input type="text" id="BillDate" name="BillDate" autocomplete="off" readonly="readonly" placeholder="Select Date" class="form-control">
+                    </div>
+                </div>
+            </div>
 
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="BillAmount" class="form-label required">Bill Amount</label>
+                        <input type="number" id="BillAmount" name="BillAmount" placeholder="Bill Amount" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="Company" class="form-label required">Company</label>
+                        <select class="form-control" id="Company" name="Company" required="required">
+                            <option value="">--Select--</option>
+                            <option value="Fabritech">Oriental FabriTech</option>
+                            <option value="Mechanical">Oriental Mechanical</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
 
-		<div class="row">
-			<div class="form-group col-md-6">
-				<label for="email" class="col-sm-3 control-label">Payment Amount</label>
-				<div class="col-sm-6">
-					<input type="text" id="PaymentAmount" name="PaymentAmount" placeholder="Payment Amount" class="form-control">
-				</div>
-			</div>
-			<div class="form-group col-md-6">
-				<label for="Specs" class="col-sm-3 control-label ">Payment Date</label>
-				<div class="col-sm-6">
-					<input type="text" id="PaymentDate" name="PaymentDate" placeholder="Payment Date" class="form-control">
-				</div>
-			</div>
-		</div>
-		<div class="row">
-			<div class="form-group col-md-6">
-				<label for="email" class="col-sm-3 control-label">Online Ref No</label>
-				<div class="col-sm-6">
-					<input type="text" id="OnlinePaymentRefNo" name="OnlinePaymentRefNo" placeholder="Online Ref Number" class="form-control">
-				</div>
-			</div>
-			<div class="form-group col-md-6">
-				<label for="email" class="col-sm-3 control-label">Cheque Number</label>
-				<div class="col-sm-6">
-					<input type="text" id="ChequeNo" name="ChequeNo" placeholder="Cheque Number" class="form-control">
-				</div>
-			</div>
-		</div>
-		<div id="errorMessageForPayment" class="error"></div>
-		<div>
-			<div class="row text-center">
-				<input type="button" id="btnPaymentSave" name="btnPaymentSave" value="Save Payment" onclick="PaymentSaveNew();" />
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="ChallanNo" class="form-label required">O/S Challan Number</label>
+                        <div class="input-group">
+                            <select class="form-control" id="ChallanNo" name="ChallanNo" required="required"></select>
+                            <span class="input-group-btn">
+                                <button class="btn btn-default" type="button" onclick="AddToChallanList('default');" title="Add this Challan to the list">
+                                    <span class="glyphicon glyphicon-plus"></span>
+                                </button>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Challans for this Bill</label>
+                        <div id="SelectedChallanList" class="ui-project-chip-list"></div>
+                    </div>
+                </div>
+            </div>
 
-				&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<input type="button" id="ClearPaymentButton" name="ClearPaymentButton" onclick="ClearPaymentScreen();" value="Clear Payment Details" />
-				&nbsp;&nbsp;&nbsp;<input type="button" id="btnExportBills" name="btnExportBills" value="Export Bills" />
-			</div>
-			
-		</div>
-		<div>
-			<h5>--------------<b>Latest 20 Payment Transactions</b>--------------------</h5>
-		</div>
-		<div class="row">
-			<div class="form-group col-md-12">
-				<table id="PaymentListTable" name="PaymentListTable" class="table table-bordered table-condensed table-striped">
-					<thead>
-						<tr style="background-color:lightblue">
-							<th>Bill No(s)</th>
-							<th>Payment Amount (Rupees)</th>
-							<th>Payment Date</th>
-							<th>Online Reference No</th>
-							<th>Cheque No</th>
-						</tr>
-					</thead>
-					<tbody>
-					</tbody>
-				</table>
-			</div>
-		</div>
+            <div class="row ui-card-footer">
+                <div class="col-md-12">
+                    <div id="errorMessageForList" class="ui-error"></div>
+                    <div id="errormessage" class="ui-error"></div>
+                </div>
+            </div>
+        </div>
 
-		<br />
-		<div id="errormessage" class="error">
-		</div>
-		<div id="message" name="message" class="success">
-		</div>
-		<br />
-		@*<div class="row">
+        <!-- ================= Save / Clear Bill - deliberately outside the card above: it acts on
+              the whole Bill Section, not just the fields in Bill Details ================= -->
+        <div class="row mt-3 mb-4" style="text-align:center;">
+            <button type="button" id="btnBillSave" name="btnBillSave" class="btn btn-primary" onclick="BillSave();">
+                <span class="glyphicon glyphicon-floppy-disk"></span>Save Bill
+            </button>
+            &nbsp;&nbsp;
+            <button type="button" id="ClearBillButton" name="ClearBillButton" class="btn btn-default" onclick="ClearBillScreen();">
+                <span class="glyphicon glyphicon-erase"></span>Clear Bill Details
+            </button>
+        </div>
+    </form>
+
+    <form class="form-horizontal" role="form" name="PaymentForm" id="PaymentForm" autocomplete="off">
+
+        <!-- ================= Pending Bills ================= -->
+        <div class="ui-card">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-th-list"></span>Pending Bills</div>
+
+            <div class="table-responsive">
+                <table id="PendingBillTable" name="PendingBillTable" class="table table-bordered table-condensed table-striped ui-table">
+                    <thead>
+                        <tr>
+                            <th>Bill No</th>
+                            <th>Bill Date</th>
+                            <th>Amount</th>
+                            <th>Company</th>
+                            <th>Select</th>
+                            <th>Full Payment</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ================= Payment Details ================= -->
+        <div class="ui-card ui-narrow-fields">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-usd"></span>Payment Details</div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="PaymentAmount" class="form-label required">Payment Amount</label>
+                        <input type="text" id="PaymentAmount" name="PaymentAmount" placeholder="Payment Amount" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="PaymentDate" class="form-label required">Payment Date</label>
+                        <input type="text" id="PaymentDate" name="PaymentDate" autocomplete="off" readonly="readonly" placeholder="Select Date" class="form-control">
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="OnlinePaymentRefNo" class="form-label">Online Ref No</label>
+                        <input type="text" id="OnlinePaymentRefNo" name="OnlinePaymentRefNo" placeholder="Online Ref Number" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="ChequeNo" class="form-label">Cheque Number</label>
+                        <input type="text" id="ChequeNo" name="ChequeNo" placeholder="Cheque Number" class="form-control">
+                    </div>
+                </div>
+            </div>
+
+            <div class="row ui-card-footer">
+                <div class="col-md-12">
+                    <div id="message" name="message" class="ui-success"></div>
+                    <div id="errorMessageForPayment" class="ui-error"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= Save / Clear Payment / Export - deliberately outside the card above:
+              Export Bills in particular isn't scoped to just the Payment Details fields ========== -->
+        <div class="row mt-3 mb-4" style="text-align:center;">
+            <button type="button" id="btnPaymentSave" name="btnPaymentSave" class="btn btn-primary" onclick="PaymentSaveNew();">
+                <span class="glyphicon glyphicon-floppy-disk"></span>Save Payment
+            </button>
+            &nbsp;&nbsp;
+            <button type="button" id="ClearPaymentButton" name="ClearPaymentButton" class="btn btn-default" onclick="ClearPaymentScreen();">
+                <span class="glyphicon glyphicon-erase"></span>Clear Payment Details
+            </button>
+            &nbsp;&nbsp;
+            <button type="button" id="btnExportBills" name="btnExportBills" class="btn btn-default" title="Export Vendor Bills to Excel">
+                <span class="glyphicon glyphicon-save"></span>Export Bills
+            </button>
+        </div>
+
+        <!-- ================= Payment History ================= -->
+        <div class="ui-card">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-list-alt"></span>Latest 20 Payment Transactions</div>
+
+            <div class="table-responsive">
+                <table id="PaymentListTable" name="PaymentListTable" class="table table-bordered table-condensed table-striped ui-table">
+                    <thead>
+                        <tr>
+                            <th>Bill No(s)</th>
+                            <th>Payment Amount (Rupees)</th>
+                            <th>Payment Date</th>
+                            <th>Online Reference No</th>
+                            <th>Cheque No</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        @*<div class="row">
 			<div class="form-group col-md-12">
 				<table id="VendorTable" name="VendorTable" class="table table-bordered table-condensed table-striped">
 					<thead>
@@ -753,6 +766,5 @@
 			</div>
 		</div>*@
 
-
-	</form>
+    </form>
 </div>
