@@ -1,0 +1,437 @@
+/* =========================================================================
+   Purchase Order — professional print stylesheet
+   Used only by Views/PurchaseOrder/PrintPO.cshtml.
+   Kept separate from PO_19Oct23_1.css (shared by PrintPR/PrintChallan/
+   PrintProjectSummary) so this redesign never touches those other views.
+   ========================================================================= */
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    background: #eceff1;
+    font-family: 'Segoe UI', Calibri, Arial, Helvetica, sans-serif;
+    color: #1f2328;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+}
+
+.po-page {
+    width: 216mm;
+    min-height: 270mm;
+    margin: 12px auto;
+    background: #ffffff;
+    padding: 10mm 12mm;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.04);
+}
+
+/* ---------- Letterhead ---------- */
+
+.po-letterhead {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+}
+
+.po-letterhead-cell {
+    display: table-cell;
+    vertical-align: middle;
+}
+
+.po-letterhead-logo {
+    width: 70px;
+}
+
+    .po-letterhead-logo img {
+        display: block;
+    }
+
+.po-letterhead-logo.po-letterhead-logo-right {
+    width: 70px;
+    text-align: right;
+}
+
+    .po-letterhead-logo.po-letterhead-logo-right img {
+        display: inline-block;
+        margin-left: auto;
+    }
+
+.po-company-name {
+    text-align: center;
+    font-size: 20pt;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+.po-accent-rule {
+    height: 3px;
+    margin: 6px 0 8px 0;
+}
+
+.po-corporate-address {
+    text-align: center;
+    font-size: 8.5pt;
+    line-height: 1.5;
+    color: #444b52;
+}
+
+    .po-corporate-address b {
+        color: #1f2328;
+    }
+
+/* ---------- Document title band ---------- */
+
+.po-title-band {
+    display: table;
+    width: 100%;
+    margin: 12px 0 10px 0;
+    border-top: 1px solid #d7dbe0;
+    border-bottom: 1px solid #d7dbe0;
+    padding: 7px 0;
+}
+
+.po-title-band-cell {
+    display: table-cell;
+    vertical-align: middle;
+}
+
+.po-title {
+    font-size: 15pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+}
+
+.po-meta {
+    text-align: right;
+    font-size: 9.5pt;
+}
+
+.po-meta-row {
+    white-space: nowrap;
+}
+
+    .po-meta-row .po-meta-label {
+        display: inline-block;
+        min-width: 56px;
+        margin-right: 4px;
+        color: #5b636b;
+        font-weight: 600;
+        text-align: right;
+    }
+
+    .po-meta-row .po-meta-value {
+        font-weight: 700;
+        color: #1f2328;
+    }
+
+/* ---------- Section labels ---------- */
+
+.po-section-label {
+    font-size: 9pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #ffffff;
+    padding: 3px 8px;
+    display: inline-block;
+    margin-bottom: 6px;
+}
+
+/* ---------- Project / reference line ---------- */
+
+.po-line {
+    font-size: 10pt;
+    margin: 4px 0;
+}
+
+    .po-line .po-label {
+        font-weight: 700;
+    }
+
+/* ---------- Vendor / details panel ---------- */
+
+.po-panel {
+    border: 1px solid #d7dbe0;
+    margin: 8px 0 10px 0;
+}
+
+.po-panel-body {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+}
+
+.po-panel-col {
+    display: table-cell;
+    vertical-align: top;
+    padding: 8px 12px;
+    font-size: 9.5pt;
+    line-height: 1.65;
+}
+
+    .po-panel-col + .po-panel-col {
+        border-left: 1px solid #e3e6ea;
+    }
+
+.po-field-label {
+    color: #5b636b;
+    font-weight: 600;
+}
+
+.po-field-value {
+    color: #1f2328;
+    font-weight: 700;
+}
+
+.po-intro {
+    font-size: 9.5pt;
+    margin: 10px 0 6px 0;
+    font-style: italic;
+    color: #3a4046;
+}
+
+/* ---------- Items table ---------- */
+
+table.po-items {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 4px 0 8px 0;
+    font-size: 9pt;
+}
+
+    table.po-items thead th {
+        color: #ffffff;
+        font-size: 8.5pt;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        text-align: left;
+        padding: 7px 6px;
+        border: 1px solid rgba(255,255,255,0.25);
+    }
+
+    table.po-items th.po-col-center,
+    table.po-items td.po-col-center {
+        text-align: center;
+    }
+
+    table.po-items th.po-col-right,
+    table.po-items td.po-col-right {
+        text-align: right;
+    }
+
+    table.po-items tbody td {
+        padding: 6px;
+        border: 1px solid #dfe2e6;
+        vertical-align: top;
+    }
+
+    table.po-items tbody tr:nth-child(even) {
+        background: #f7f8f9;
+    }
+
+    table.po-items tfoot td {
+        border: 1px solid #dfe2e6;
+        border-top: 2px solid #1f2328;
+        padding: 7px 6px;
+        font-weight: 700;
+        font-size: 9.5pt;
+    }
+
+.po-total-label {
+    text-align: right;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.po-total-amount {
+    text-align: right;
+}
+
+/* ---------- Notes ---------- */
+
+.po-notes {
+    font-size: 9.5pt;
+    margin: 6px 0 10px 0;
+    line-height: 1.6;
+}
+
+/* ---------- Terms ---------- */
+
+.po-terms {
+    margin-top: 6px;
+}
+
+.po-terms-body {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+}
+
+.po-terms-col {
+    display: table-cell;
+    vertical-align: top;
+    padding: 8px 14px 8px 0;
+    font-size: 8.8pt;
+}
+
+    .po-terms-col:last-child {
+        padding-right: 0;
+        padding-left: 14px;
+    }
+
+ul.po-bullets {
+    margin: 0;
+    padding-left: 16px;
+}
+
+    ul.po-bullets li {
+        margin-bottom: 5px;
+        line-height: 1.45;
+    }
+
+/* ---------- Signature / footer ---------- */
+
+.po-footer {
+    margin-top: 16px;
+    border-top: 1px solid #d7dbe0;
+    padding-top: 10px;
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+    font-size: 9.5pt;
+}
+
+.po-footer-col {
+    display: table-cell;
+    vertical-align: bottom;
+}
+
+.po-footer-contact {
+    line-height: 1.7;
+}
+
+.po-signature-block {
+    text-align: right;
+}
+
+.po-signature-line {
+    margin: 26px 0 4px 0;
+    border-bottom: 1px solid #1f2328;
+    width: 70%;
+    display: inline-block;
+}
+
+.po-signature-caption {
+    font-size: 8.5pt;
+    color: #5b636b;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.po-doc-footnote {
+    margin-top: 14px;
+    padding-top: 6px;
+    border-top: 1px solid #e3e6ea;
+    font-size: 7.5pt;
+    color: #8a9099;
+    text-align: center;
+    font-style: italic;
+}
+
+/* ---------- Toolbar (print icon + close button) ---------- */
+
+.po-toolbar {
+    position: fixed;
+    top: 12px;
+    right: 16px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.po-icon-button,
+.po-close-button {
+    background: #ffffff;
+    color: #1f2328;
+    border: 1px solid #c4c9cf;
+    font-weight: 600;
+    border-radius: 3px;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.po-icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+}
+
+.po-close-button {
+    padding: 6px 14px;
+    font-size: 9.5pt;
+}
+
+.po-icon-button:hover,
+.po-close-button:hover {
+    background: #f2f3f4;
+}
+
+/* ---------- Print button ---------- */
+
+.po-print-bar {
+    text-align: center;
+    margin: 16px auto;
+    width: 216mm;
+}
+
+#printButton {
+    background: #1f2328;
+    color: #ffffff;
+    border: none;
+    padding: 10px 28px;
+    font-size: 10.5pt;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+    #printButton:hover {
+        background: #34393f;
+    }
+
+/* ---------- Print media ---------- */
+
+@page {
+    size: Letter;
+    margin: 8mm;
+}
+
+@media print {
+    html, body {
+        background: #ffffff;
+        width: 216mm;
+    }
+
+    .po-page {
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+        width: auto;
+        min-height: 0;
+    }
+
+    .po-print-bar,
+    .po-toolbar {
+        display: none;
+    }
+}

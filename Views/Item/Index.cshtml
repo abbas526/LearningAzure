@@ -1,9 +1,14 @@
-﻿@{
+@{
     ViewBag.Title = "Index";
+    // Cache-bust ModernUI.css against its own last-write time, so a browser that already cached an
+    // older copy (same URL every deploy otherwise) is forced to re-fetch it after any CSS edit,
+    // instead of silently keeping stale styling until a manual hard refresh.
+    var modernUiCssVersion = System.IO.File.GetLastWriteTime(Server.MapPath("~/Content/ModernUI.css")).Ticks;
 }
 <script src="~/Scripts/jquery-3.4.1.js"></script>
 <link href="~/Scripts/jquery-ui-1.12.1.min.css" rel="stylesheet" />
 <link href="~/Content/Purchase.css" rel="stylesheet" />
+<link href="~/Content/ModernUI.css?v=@modernUiCssVersion" rel="stylesheet" />
 <script src="~/Scripts/jquery-ui-1.12.1.min.js"></script>
 <script src="~/Scripts/jquery.validate.min-1.19.js"></script>
 <script src="~/Scripts/form-validation.js"></script>
@@ -77,45 +82,52 @@
         $('#errormessage').html('');
     }
 </script>
+<div class="container mt-4 ui-modern">
 
-<h2>Index</h2>
+    <div class="ui-page-title">
+        <span class="glyphicon glyphicon-tags"></span>Item Management
+    </div>
 
-<div class="container">
-    <form class="form-horizontal" role="form" name="ItemForm" id="ItemForm">
-        <br /><br />
-        <div class="row">
-            <div class="form-group col-md-6">
-                <label for="PR" class="col-sm-3 control-label required">New Item Name</label>
-                <div class="col-sm-6">
-                    <input type="text" id="ItemName" name="ItemName" required="required" placeholder="Item Name" class="form-control">
+    <form role="form" name="ItemForm" id="ItemForm" autocomplete="off">
+
+        <!-- ================= Add New Item ================= -->
+        <div class="ui-card">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-plus"></span>Add New Item</div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="ItemName" class="form-label required">New Item Name</label>
+                        <input type="text" id="ItemName" name="ItemName" placeholder="Item Name" class="form-control">
+                    </div>
                 </div>
             </div>
-            <div class="form-group col-md-6">
-                &nbsp;&nbsp;
-            </div>
-        </div>
-        <div class="row">
-            <div class="form-group col-md-6">
-                <label for="PR" class="col-sm-3 control-label required">Existing Items List</label>
-                <div class="col-sm-4">
-                    <select required class="form-control" id="ItemDropdown" name="ItemDropdown"></select>
+
+            <div class="row ui-card-footer">
+                <div class="col-md-6">
+                    <div id="message" name="message"></div>
+                </div>
+                <div class="col-md-6 btn-toolbar-right">
+                    <button type="button" id="btnSave" name="btnSave" class="btn btn-primary" onclick="SaveData();">
+                        <span class="glyphicon glyphicon-floppy-disk"></span>Save Item
+                    </button>
                 </div>
             </div>
-            <div class="form-group col-md-6">
-                &nbsp;
+            <div id="errormessage"></div>
+        </div>
+
+        <!-- ================= Existing Items ================= -->
+        <div class="ui-card">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-list-alt"></span>Existing Items</div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group mb-0">
+                        <label for="ItemDropdown" class="form-label">Existing Items List</label>
+                        <select class="form-control" id="ItemDropdown" name="ItemDropdown"></select>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="row">
-            <div class="form-group col-md-6">
-                &nbsp;
-            </div>
-            <div class="form-group col-md-6 pull-left">
-                <input type="button" id="btnSave" name="btnSave" value="Save" onclick="SaveData();" />
-                &nbsp;&nbsp;
-                <div id="message" name="message" class="success"></div>
-            </div>
-        </div>
-        <div id="errormessage" class="error">
-        </div>
-    </form> <!-- /form -->
+
+    </form> <!-- /ItemForm -->
 </div> <!-- ./container -->

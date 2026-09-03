@@ -1,9 +1,14 @@
-﻿@{
+@{
     ViewBag.Title = "Index";
+    // Cache-bust ModernUI.css against its own last-write time, so a browser that already cached an
+    // older copy (same URL every deploy otherwise) is forced to re-fetch it after any CSS edit,
+    // instead of silently keeping stale styling until a manual hard refresh.
+    var modernUiCssVersion = System.IO.File.GetLastWriteTime(Server.MapPath("~/Content/ModernUI.css")).Ticks;
 }
 <script src="~/Scripts/jquery-3.4.1.js"></script>
 <link href="~/Scripts/jquery-ui-1.12.1.min.css" rel="stylesheet" />
 <link href="~/Content/Purchase.css" rel="stylesheet" />
+<link href="~/Content/ModernUI.css?v=@modernUiCssVersion" rel="stylesheet" />
 <script src="~/Scripts/jquery-ui-1.12.1.min.js"></script>
 <script src="~/Scripts/jquery.validate.min-1.19.js"></script>
 <script src="~/Scripts/form-validation.js"></script>
@@ -222,284 +227,195 @@
             contentType: false, // Not to set any content header
             processData: false, // Not to process data
             data: fileData,
+            dataType: 'json',
             success: function (result) {
-
-                alert(result);
+                if (result && result.Success && result.NewlyAddedPRs && result.NewlyAddedPRs.length > 0) {
+                    RenderUploadedPRTable(result.NewlyAddedPRs);
+                }
+                else {
+                    // Upload failed (or added nothing) - never show/refresh a "newly added" table
+                    // for an upload that didn't actually add anything.
+                    $('#UploadedPRTable tbody').empty();
+                    $('#UploadedPRsSection').hide();
+                }
+                alert(result && result.Result ? result.Result : result);
             },
             error: function (err) {
+                $('#UploadedPRTable tbody').empty();
+                $('#UploadedPRsSection').hide();
                 alert(err.statusText);
             }
         });
     }
+
+    // Renders ONLY the PRs the most recent bulk upload actually inserted (never the project's
+    // full PR list) into the "Newly Added PRs" table below the Bulk PR Upload card - same column
+    // layout as the "PRs for Project" table on the Purchase Requisition screen. "All Item Recd" is
+    // always "no" here since these rows were just created.
+    function RenderUploadedPRTable(newlyAddedPRs) {
+        var tbody = $('#UploadedPRTable tbody');
+        tbody.empty();
+        for (var i = 0; i < newlyAddedPRs.length; i++) {
+            var pr = newlyAddedPRs[i];
+            tbody.append("<tr>" +
+                "<td>" + pr.PRNo + "</td>" +
+                "<td>" + pr.Item + "</td>" +
+                "<td>" + pr.ItemSize + "</td>" +
+                "<td>" + pr.Specs + "</td>" +
+                "<td>" + pr.Quantity + "</td>" +
+                "<td>" + pr.Unit + "</td>" +
+                "<td>" + pr.PRDate + "</td>" +
+                "<td>" + pr.DateRequired + "</td>" +
+                "<td>" + pr.Remark + "</td>" +
+                "<td>no</td>" +
+                "</tr>");
+        }
+        $('#UploadedPRsSection').show();
+    }
 </script>
-<div class="container mt-4">
+<div class="container mt-4 ui-modern">
 
-    <div class="card shadow-lg p-4">
-        <h4 class="mb-4 text-primary">Project Management</h4>
-
-        <form id="ProjectForm">
-
-            <!-- ================= Existing Project ================= -->
-            <div class="card custom-card mb-4">
-                <div class="card-body">
-                    <h5 class="card-title text-primary mb-4">
-                        <i class="glyphicon glyphicon-folder-open"></i>
-                        Existing Project
-                    </h5>
-
-                    <div class="row align-items-end">
-
-                        <div class="col-md-5">
-                            <label class="form-label required">Project Name</label>
-                            <div class="input-group">
-                                <select class="form-control" id="ProjectName" name="ProjectName"></select>
-                                <span class="input-group-btn">
-                                    <button class="btn btn-info" type="button" onclick="LoadData();">
-                                        <i class="glyphicon glyphicon-search"></i>
-                                    </button>
-                                </span>
-                            </div>
-                        </div>
-
-                        <div class="col-md-4">
-                            <label class="form-label required">Active</label>
-                            <select class="form-control" name="IsActive" id="IsActive">
-                                <option value="">--Select--</option>
-                                <option value="yes">Yes</option>
-                                <option value="no">No</option>
-                            </select>
-                        </div>
-
-                        <div class="col-md-3">
-                            <button type="button"
-                                    id="btnSave"
-                                    class="btn btn-primary w-100"
-                                    onclick="SaveData();">
-                                Save Existing Project
-                            </button>
-                        </div>
-
-                    </div>
-
-                    <div id="message" class="text-success mt-3"></div>
-                </div>
-            </div>
-            <br>
-
-            <div class="row mt-4">
-
-                <!-- ================= Add New Project ================= -->
-                <div class="col-md-6">
-                    <div class="card custom-card h-100">
-                        <div class="card-body">
-                            <h5 class="card-title mb-3 text-success">
-                                <i class="glyphicon glyphicon-plus"></i>
-                                Add New Project
-                            </h5>
-
-                            <div class="mb-3">
-                                <label class="form-label">New Project Name</label>
-                                <input type="text"
-                                       id="NewProjectName"
-                                       name="NewProjectName"
-                                       placeholder="Enter new project name"
-                                       class="form-control">
-                            </div>
-
-                            <button type="button"
-                                    id="btnAdd"
-                                    class="btn btn-success w-100"
-                                    onclick="AddData();">
-                                Save New Project
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-
-                <!-- ================= Clone Project ================= -->
-                <div class="col-md-6">
-                    <div class="card custom-card h-100">
-                        <div class="card-body">
-                            <h5 class="card-title mb-3 text-warning">
-                                <i class="glyphicon glyphicon-duplicate"></i>
-                                Clone Project
-                            </h5>
-
-                            <div class="mb-3">
-                                <label class="form-label">New Project Name</label>
-                                <input type="text"
-                                       id="CloneProjectName"
-                                       name="CloneProjectName"
-                                       placeholder="Enter cloned project name"
-                                       class="form-control">
-                            </div>
-
-                            <button type="button"
-                                    id="btnClone"
-                                    class="btn btn-warning w-100"
-                                    onclick="CloneProject();">
-                                Copy Existing Project
-                            </button>
-
-                            <div class="alert alert-danger mt-3 small">
-                                This will duplicate all PRs from the selected project.
-                                PR Date and Required Date will default to today.
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-
-
-
-            <!-- ================= Bulk Upload ================= -->
-            <div class="card custom-card mt-4">
-                <div class="card-body">
-                    <h5 class="card-title text-info mb-4">
-                        <i class="glyphicon glyphicon-upload"></i>
-                        Bulk PR Upload
-                    </h5>
-
-                    <div class="row align-items-end">
-
-                        <div class="col-md-5">
-                            <label class="form-label">Upload File</label>
-                            <input type="file"
-                                   id="PRFileUpload"
-                                   name="PRFileUpload"
-                                   class="form-control">
-                        </div>
-
-                        <div class="col-md-3">
-                            <button type="button"
-                                    id="btnFileUpload"
-                                    class="btn btn-info w-100"
-                                    onclick="UploadPR();">
-                                Upload PRs
-                            </button>
-                        </div>
-
-                        <div class="col-md-4">
-                            <a class="btn btn-outline-secondary w-100"
-                               href="@Url.Action("GetSampleExcel", "ProjectMaster")">
-                                Download Template
-                            </a>
-                        </div>
-
-                    </div>
-
-                </div>
-            </div>
-
-
-            <div id="errormessage" class="alert alert-danger mt-4 d-none"></div>
-
-        </form>
+    <div class="ui-page-title">
+        <span class="glyphicon glyphicon-folder-open"></span>Project Management
     </div>
 
-</div>
+    <form id="ProjectForm" name="ProjectForm" role="form" autocomplete="off">
 
-<!--<div class="container">
-    <form class="form-horizontal" role="form" name="ProjectForm" id="ProjectForm">
-        <br /><br />
-        <div class="row">
-            <div class="form-group col-md-6">
-                <label for="PR" class="col-sm-3 control-label required">Project Name</label>
-                <div class="col-sm-6">
-                    <select class="form-control" id="ProjectName" name="ProjectName"></select>
+        <!-- ================= Existing Project ================= -->
+        <div class="ui-card ui-narrow-fields">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-search"></span>Existing Project</div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="ProjectName" class="form-label required">Project Name</label>
+                        <div class="input-group">
+                            <select class="form-control" id="ProjectName" name="ProjectName"></select>
+                            <span class="input-group-btn">
+                                <button class="btn btn-info" type="button" onclick="LoadData();" title="Load this project">
+                                    <span class="glyphicon glyphicon-search"></span>Load
+                                </button>
+                            </span>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-sm-2">
-                    <a href="#" onclick="LoadData();" title="Search Project" data-toggle="popover" data-trigger="focus" data-content="Click anywhere in the document to close this popover" data-placement="right">
-                        <i class="glyphicon glyphicon-search"></i>
-                    </a>
-                </div>
-            </div>
-            <div class="form-group col-md-6">
-                &nbsp;&nbsp;
-            </div>
-        </div>
-        <div class="row">
-            <div class="form-group col-md-6">
-                <label for="PR" class="col-sm-3 control-label required">Active</label>
-                <div class="col-sm-4">
-                    <select name="IsActive" id="IsActive">
-                        <option value="">--Select--</option>
-                        <option value="yes">yes</option>
-                        <option value="no">no</option>
-                    </select>
-                </div>
-            </div>
-            <div class="form-group col-md-6">
-                &nbsp;
-            </div>
-        </div>
-        <div class="row">
-            <div class="form-group col-md-6"">
-                <input type="button" id="btnSave" name="btnSave" value="Save Existing Project" onclick="SaveData();" />
-                &nbsp;&nbsp;
-                <div id="message" name="message" class="success"></div>
-            </div>
-            <div class="form-group col-md-6">
-                &nbsp;
-            </div>
-        </div>
-        <div class="row">
-            <hr />
-            <b>---Adding New Project Section---</b>
-            <br />
-        </div>
-        <div class="row">
-            <div class="form-group col-md-6">
-                <label for="PR" class="col-sm-3 control-label">New Project</label>
-                <div class="col-sm-6">
-                    <input type="text" id="NewProjectName" name="NewProjectName" placeholder="New Project Name" class="form-control">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="IsActive" class="form-label required">Active</label>
+                        <select class="form-control" name="IsActive" id="IsActive">
+                            <option value="">--Select--</option>
+                            <option value="yes">Yes</option>
+                            <option value="no">No</option>
+                        </select>
+                    </div>
                 </div>
             </div>
-            <div class="form-group col-md-6">
-                <input type="button" id="btnAdd" name="btnAdd" value="Save New Project" onclick="AddData();" />&nbsp;&nbsp;
+
+            <div class="row ui-card-footer">
+                <div class="col-md-6">
+                    <div id="message" name="message"></div>
+                </div>
+                <div class="col-md-6 btn-toolbar-right">
+                    <button type="button" id="btnSave" name="btnSave" class="btn btn-primary" onclick="SaveData();">
+                        <span class="glyphicon glyphicon-floppy-disk"></span>Save Existing Project
+                    </button>
+                </div>
             </div>
         </div>
 
+        <!-- ================= Add New Project / Clone Project ================= -->
         <div class="row">
-            <hr />
-            <b>---Project Cloning Section---</b>
-            <br />
+            <div class="col-md-6">
+                <div class="ui-card">
+                    <div class="ui-card-title"><span class="glyphicon glyphicon-plus"></span>Add New Project</div>
+
+                    <div class="form-group">
+                        <label for="NewProjectName" class="form-label">New Project Name</label>
+                        <input type="text" id="NewProjectName" name="NewProjectName" placeholder="Enter new project name" class="form-control">
+                    </div>
+
+                    <button type="button" id="btnAdd" name="btnAdd" class="btn btn-success btn-block" onclick="AddData();">
+                        <span class="glyphicon glyphicon-floppy-disk"></span>Save New Project
+                    </button>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="ui-card">
+                    <div class="ui-card-title"><span class="glyphicon glyphicon-copy"></span>Clone Project</div>
+
+                    <div class="form-group">
+                        <label for="CloneProjectName" class="form-label">New Project Name</label>
+                        <input type="text" id="CloneProjectName" name="CloneProjectName" placeholder="Enter cloned project name" class="form-control">
+                    </div>
+
+                    <button type="button" id="btnClone" name="btnClone" class="btn btn-warning btn-block" onclick="CloneProject();">
+                        <span class="glyphicon glyphicon-copy"></span>Copy Existing Project
+                    </button>
+
+                    <div class="ui-error mt-3">
+                        This will duplicate all PRs from the selected Project Name above. PR Date and Required Date will default to today.
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="row">
-            <div class="form-group col-md-6">
-                <input type="text" id="CloneProjectName" name="CloneProjectName" required="required" placeholder="New Project Name" class="form-control">
-                <input type="button" id="btnClone" name="btnClone" value="Copy Existing Project" onclick="CloneProject();" />
-            </div>
-            <div class="form-group col-md-6 pull-left">
-                &nbsp;
+        <!-- ================= Bulk PR Upload ================= -->
+        <div class="ui-card">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-upload"></span>Bulk PR Upload</div>
+
+            <div class="row">
+                <div class="col-md-5">
+                    <div class="form-group">
+                        <label for="PRFileUpload" class="form-label">Upload File</label>
+                        <input type="file" id="PRFileUpload" name="PRFileUpload" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" style="visibility:hidden;">&nbsp;</label>
+                    <div>
+                        <button type="button" id="btnFileUpload" name="btnFileUpload" class="btn btn-info" onclick="UploadPR();">
+                            <span class="glyphicon glyphicon-upload"></span>Upload PRs
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" style="visibility:hidden;">&nbsp;</label>
+                    <div class="btn-toolbar-right">
+                        <a class="btn btn-default" href="@Url.Action("GetSampleExcel", "ProjectMaster")" title="Download the PR upload template">
+                            <span class="glyphicon glyphicon-download-alt"></span>Download Template
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="row">
-            <div class="form-group col-md-6">
-                <b><font color="red">** Creating a Copy of the Project will add a new Project and create a copy of all PRs associated from existing project. The PR Date and Required Date will be considered as current date and will need changes as per actuals.</font></b>
-            </div>
-            <div class="form-group col-md-6 pull-left">
-                &nbsp;
+
+        <!-- ================= Newly Added PRs (last Bulk Upload) ================= -->
+        <div class="ui-card" id="UploadedPRsSection" style="display:none;">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-ok-circle"></span>Newly Added PRs (Last Bulk Upload)</div>
+            <div class="table-responsive">
+                <table id="UploadedPRTable" name="UploadedPRTable" class="table table-bordered table-condensed table-striped ui-table">
+                    <thead>
+                        <tr>
+                            <th>PR #</th>
+                            <th>Item</th>
+                            <th style="width:15%;">Size</th>
+                            <th>MOC</th>
+                            <th>Qty</th>
+                            <th>Unit</th>
+                            <th>PR Date</th>
+                            <th>Reqd Date</th>
+                            <th>Remarks</th>
+                            <th>All Item Recd</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
             </div>
         </div>
-        <div class="row">
-            <b>---Bulk PR Upload Section---</b>
-            <br />
-        </div>
-        <div class="row">
-            <div class="form-group col-md-6">
-                <input type="file" id="PRFileUpload" name="PRFileUpload" class="form-control">
-                <input type="button" id="btnFileUpload" name="btnClone" value="Upload PRs" onclick="UploadPR();" />
-            </div>
-            <div class="form-group col-md-6 pull-left">
-                Template <a href="@Url.Action("GetSampleExcel", "ProjectMaster")">PR_Template.xlsx</a>
-            </div>
-        </div>
-        <div id="errormessage" class="error">
-        </div>
-    </form>-->
-<!-- /form -->
-<!--</div>--> <!-- ./container -->
+
+        <div id="errormessage"></div>
+
+    </form> <!-- /ProjectForm -->
+</div> <!-- ./container -->
