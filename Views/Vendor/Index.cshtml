@@ -1,12 +1,19 @@
 @{
     ViewBag.Title = "Index";
+    // Cache-bust ModernUI.css against its own last-write time, so a browser that already cached an
+    // older copy (same URL every deploy otherwise) is forced to re-fetch it after any CSS edit,
+    // instead of silently keeping stale styling until a manual hard refresh.
+    var modernUiCssVersion = System.IO.File.GetLastWriteTime(Server.MapPath("~/Content/ModernUI.css")).Ticks;
 }
 <script src="~/Scripts/jquery-3.4.1.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.css">
+<link href="~/Scripts/jquery-ui-1.12.1.min.css" rel="stylesheet" />
+@*<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.css">*@
 <link href="~/Content/Purchase.css" rel="stylesheet" />
-<link href="~/Content/ModernUI.css" rel="stylesheet" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.1/jquery.validate.min.js"></script>
+<link href="~/Content/ModernUI.css?v=@modernUiCssVersion" rel="stylesheet" />
+<script src="~/Scripts/jquery-ui-1.12.1.min.js"></script>
+@*<script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>*@
+<script src="~/Scripts/jquery.validate.min-1.19.js"></script>
+@*<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.1/jquery.validate.min.js"></script>*@
 <script src="~/Scripts/form-validation.js"></script>
 
 <script>
@@ -161,27 +168,29 @@
         <span class="glyphicon glyphicon-briefcase"></span>Vendor Management
     </div>
 
-    <form role="form" name="VendorForm" id="VendorForm">
+    <form role="form" name="VendorForm" id="VendorForm" autocomplete="off">
 
         <!-- ================= Search Existing Vendor ================= -->
         <div class="ui-card">
             <div class="ui-card-title"><span class="glyphicon glyphicon-search"></span>Find Existing Vendor</div>
             <div class="row">
                 <div class="col-md-6">
-                    <label for="VendorName" class="form-label">Vendor Name</label>
-                    <div class="input-group">
-                        <input type="text" id="VendorName" name="VendorName" placeholder="Start typing a vendor name..." class="form-control">
-                        <span class="input-group-btn">
-                            <button class="btn btn-info" type="button" onclick="LoadData();" title="Load Vendor">
-                                <span class="glyphicon glyphicon-search"></span>Load
-                            </button>
-                        </span>
+                    <div class="form-group">
+                        <label for="VendorName" class="form-label">Vendor Name</label>
+                        <div class="input-group">
+                            <input type="text" id="VendorName" name="VendorName" autocomplete="off" placeholder="Start typing a vendor name..." class="form-control ui-input-md">
+                            <span class="input-group-btn">
+                                <button class="btn btn-info" type="button" onclick="LoadData();" title="Load this vendor">
+                                    <span class="glyphicon glyphicon-search"></span>Load
+                                </button>
+                            </span>
+                        </div>
                     </div>
                 </div>
-                <div class="col-md-6 btn-toolbar-right">
+                <div class="col-md-6">
                     <label class="form-label" style="visibility:hidden;">&nbsp;</label>
                     <div>
-                        <button type="button" id="btnAdd" name="btnAdd" class="btn btn-default" onclick="AddData();">
+                        <button type="button" id="btnAdd" name="btnAdd" class="btn btn-default" onclick="AddData();" title="Clear the form and start a new vendor">
                             <span class="glyphicon glyphicon-plus"></span>New Vendor
                         </button>
                     </div>
@@ -190,7 +199,7 @@
         </div>
 
         <!-- ================= Vendor Details ================= -->
-        <div class="ui-card">
+        <div class="ui-card ui-narrow-fields">
             <div class="ui-card-title"><span class="glyphicon glyphicon-list-alt"></span>Vendor Details</div>
 
             <div class="row">
@@ -260,11 +269,9 @@
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- ================= Actions ================= -->
-        <div class="ui-card">
-            <div class="row">
+            <!-- ================= Save (kept in this card, alongside the fields it saves) ================= -->
+            <div class="row ui-card-footer">
                 <div class="col-md-6">
                     <div id="message" name="message"></div>
                 </div>
@@ -277,5 +284,5 @@
             <div id="errormessage"></div>
         </div>
 
-    </form> <!-- /form -->
+    </form> <!-- /VendorForm -->
 </div> <!-- ./container -->

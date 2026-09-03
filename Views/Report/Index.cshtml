@@ -1,9 +1,14 @@
-﻿@{
+@{
     ViewBag.Title = "Index";
+    // Cache-bust ModernUI.css against its own last-write time, so a browser that already cached an
+    // older copy (same URL every deploy otherwise) is forced to re-fetch it after any CSS edit,
+    // instead of silently keeping stale styling until a manual hard refresh.
+    var modernUiCssVersion = System.IO.File.GetLastWriteTime(Server.MapPath("~/Content/ModernUI.css")).Ticks;
 }
 <script src="~/Scripts/jquery-3.4.1.js"></script>
 <link href="~/Scripts/jquery-ui-1.12.1.min.css" rel="stylesheet" />
 <link href="~/Content/Purchase.css" rel="stylesheet" />
+<link href="~/Content/ModernUI.css?v=@modernUiCssVersion" rel="stylesheet" />
 <script src="~/Scripts/jquery-ui-1.12.1.min.js"></script>
 <script src="~/Scripts/jquery.validate.min-1.19.js"></script>
 <script src="~/Scripts/form-validation.js"></script>
@@ -66,7 +71,7 @@
         $('#btnExportPOItem').click(function () {
             var url = '@Url.Action("WritePOItemToExcel", "Report")';
             var startDate = $('#POItemStartDate').val();
-            var endDate = $('#POITemEndDate').val();
+            var endDate = $('#POItemEndDate').val();
             window.location.href = url + '?POStartDate=' + startDate + "&POEndDate=" + endDate;
         });
         $('#btnExportVendor').click(function () {
@@ -100,6 +105,21 @@
         });
 		
     });
+    // Clears just this card's date-range fields, so a report can be pulled for "all time"
+    // without needing a Start/End Date filled in.
+    function ResetPRDates() {
+        $('#PRStartDate').val('');
+        $('#PREndDate').val('');
+    }
+    function ResetPODates() {
+        $('#POStartDate').val('');
+        $('#POEndDate').val('');
+    }
+    function ResetPOItemDates() {
+        $('#POItemStartDate').val('');
+        $('#POItemEndDate').val('');
+    }
+
     function ValidatePassword() {
             //Serialize the form datas.
             var valdata = { "Pass": $("#SuperAdminCode").val() };
@@ -114,23 +134,23 @@
                     if (data == 'Success') {
 
                         $('#btnExportPR').attr("disabled", false);
-                        $('#btnExportPR').css({ backgroundColor: '#32CD32' });
+                        $('#btnExportPR').css({ backgroundColor: '#0078D4', color: '#ffffff' });
                         $('#btnExportPO').attr("disabled", false);
-                        $('#btnExportPO').css({ backgroundColor: '#32CD32' });
+                        $('#btnExportPO').css({ backgroundColor: '#0078D4', color: '#ffffff' });
                         $('#btnExportPOItem').attr("disabled", false);
-                        $('#btnExportPOItem').css({ backgroundColor: '#32CD32' });
+                        $('#btnExportPOItem').css({ backgroundColor: '#0078D4', color: '#ffffff' });
                         $('#btnExportVendor').attr("disabled", false);
-                        $('#btnExportVendor').css({ backgroundColor: '#32CD32' });
+                        $('#btnExportVendor').css({ backgroundColor: '#0078D4', color: '#ffffff' });
                         $('#btnExportPendingPR').attr("disabled", false);
-                        $('#btnExportPendingPR').css({ backgroundColor: '#32CD32' });
+                        $('#btnExportPendingPR').css({ backgroundColor: '#0078D4', color: '#ffffff' });
                         $('#btnExportPODetails').attr("disabled", false);
-                        $('#btnExportPODetails').css({ backgroundColor: '#32CD32' });
+                        $('#btnExportPODetails').css({ backgroundColor: '#0078D4', color: '#ffffff' });
                         $('#btnExportChallan').attr("disabled", false);
-						$('#btnExportChallan').css({ backgroundColor: '#32CD32' });
+						$('#btnExportChallan').css({ backgroundColor: '#0078D4', color: '#ffffff' });
 						$('#btnExportBills').attr("disabled", false);
-						$('#btnExportBills').css({ backgroundColor: '#32CD32' });
+						$('#btnExportBills').css({ backgroundColor: '#0078D4', color: '#ffffff' });
                         //$('#btnDownloadDB').attr("disabled", false);
-                        //$('#btnDownloadDB').css({ backgroundColor: '#32CD32' });
+                        //$('#btnDownloadDB').css({ backgroundColor: '#0078D4', color: '#ffffff' });
                     }
 
 
@@ -161,135 +181,208 @@
     }
 
 </script>
-<div class="container">
+<div class="container mt-4 ui-modern">
 
-	<form class="form-horizontal" role="form" name="PRForm" id="PRForm" action="Report/ExportToExcel">
-		<h2>Data Export</h2>
-		<div class="row">
-			<div class="form-group col-md-12">
-				<label for="PR" class="col-sm-3 control-label">SuperAdmin Code</label>
-				<div class="col-sm-3">
-					<input type="password" id="SuperAdminCode" required="required" name="SuperAdminCode" placeholder="Super Admin Code" class="form-control" maxlength="4">
-				</div>
-				<input class="col-sm-2" type="button" id="btnCheckCode" name="btnCheckCode" value="Validate Code" onclick="ValidatePassword();" />
-			</div>
-		</div>
-		<div class="row">
-			<div class="form-group col-md-12">
-				<label for="PR" class="col-sm-3 control-label">Purchase Requisitions</label>
-				<div class="col-sm-3">
-					<input type="date" id="PRStartDate" required="required" name="PRStartDate" placeholder="PR Start Date" class="form-control">
-				</div>
-				<div class="col-sm-3">
-					<input type="date" id="PREndDate" required="required" name="PREndDate" placeholder="PR End Date" class="form-control">
-				</div>
-				<input class="col-sm-2" disabled="disabled" type="button" id="btnExportPR" name="btnExportPR" value="Export PR" />
-			</div>
-		</div>
-		<div class="row">
-			<div class="form-group col-md-12">
-				<label for="PR" class="col-sm-3 control-label">Purchase Order</label>
-				<div class="col-sm-3">
-					<input type="date" id="POStartDate" required="required" name="POStartDate" placeholder="PO Start Date" class="form-control">
-				</div>
-				<div class="col-sm-3">
-					<input type="date" id="POEndDate" required="required" name="POEndDate" placeholder="PO End Date" class="form-control">
-				</div>
-				<input class="col-sm-2" disabled="disabled" type="button" id="btnExportPO" name="btnExportPO" value="Export PO" />
-			</div>
-		</div>
-		<div class="row">
-			<div class="form-group col-md-12">
-				<label for="PR" class="col-sm-3 control-label">Purchase Order Items</label>
-				<div class="col-sm-3">
-					<input type="date" id="POItemStartDate" required="required" name="POItemStartDate" placeholder="PO Start Date" class="form-control">
-				</div>
-				<div class="col-sm-3">
-					<input type="date" id="POItemEndDate" required="required" name="POItemEndDate" placeholder="PO End Date" class="form-control">
-				</div>
-				<input class="col-sm-2" disabled="disabled" type="button" id="btnExportPOItem" name="btnExportPOItem" value="Export PO ITems" />
-			</div>
-		</div>
-		<div class="row">
-			<div class="form-group col-md-12">
-				<label for="PR" class="col-sm-3 control-label">Vendors</label>
-				<div class="col-sm-3">
-					<input class="col-sm-8" disabled="disabled" type="button" id="btnExportVendor" name="btnExportVendor" value="Export Vendor Details" />
-				</div>
-				<div class="col-sm-3">
-					&nbsp;
-				</div>
-				&nbsp;
-			</div>
-		</div>
-		<div class="row">
-			<div class="form-group col-md-12">
-				<label for="PR" class="col-sm-3 control-label">Pending PR List</label>
-				<div class="col-sm-3">
-					<input class="col-sm-8" disabled="disabled" type="button" id="btnExportPendingPR" name="btnExportPendingPR" value="Export Pending PR Details" />
-				</div>
-				<div class="col-sm-3">
-					&nbsp;
-				</div>
-				&nbsp;
-			</div>
-		</div>
-		<div class="row">
-			<div class="form-group col-md-12">
-				<label for="PR" class="col-sm-3 control-label">Project Names</label>
-				<div class="col-sm-3">
-					<select class="form-control" id="ProjectNameDropdown" name="ProjectNameDropdown"></select>
-				</div>
-				<div class="col-sm-3">
-					<input class="col-sm-8" disabled="disabled" type="button" id="btnExportPODetails" name="btnExportPODetails" value="Export PO Details" />
-				</div>
-				<div class="col-sm-3">
-					&nbsp;
-				</div>
-			</div>
-		</div>
-		<div class="row">
-			<div class="form-group col-md-12">
-				<label for="PR" class="col-sm-3 control-label">Outgoing Challan List</label>
-				<div class="col-sm-3">
-					<input class="col-sm-8" disabled="disabled" type="button" id="btnExportChallan" name="btnExportChallan" value="Export Challan Details" />
-				</div>
-				<div class="col-sm-3">
-					&nbsp;
-				</div>
-				&nbsp;
-			</div>
-		</div>
+    <div class="ui-page-title">
+        <span class="glyphicon glyphicon-cloud-download"></span>Data Export &amp; Reports
+    </div>
 
-		<div class="row">
-			<div class="form-group col-md-12">
-				<label for="PR" class="col-sm-3 control-label">Vendors</label>
-				<div class="col-sm-3">
-					<select class="form-control" id="VendorBills" name="VendorBills"></select>
-				</div>
-				<div class="col-sm-3">
-					<input class="col-sm-8" disabled="disabled" type="button" id="btnExportBills" name="btnExportBills" value="Export Bills" />
-				</div>
-				<div class="col-sm-3">
-					&nbsp;
-				</div>
-			</div>
-		</div>
-		@*<div class="row">
-			<div class="form-group col-md-12">
-				<label for="PR" class="col-sm-3 control-label">Download Database</label>
-				<div class="col-sm-3">
-					<input class="col-sm-8" disabled="disabled" type="button" id="btnDownloadDB" name="btnDownloadDB" value="Download Database" />
-				</div>
-				<div class="col-sm-3">
-					&nbsp;
-				</div>
-				&nbsp;
-			</div>
-		</div>*@
-		<div id="errormessage" class="error">
-			<span></span>
-		</div>
-	</form>
+    <form role="form" name="PRForm" id="PRForm" autocomplete="off">
 
-</div> <!-- ./container  -->
+        <!-- ================= Access Code ================= -->
+        <div class="ui-card ui-narrow-fields">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-lock"></span>Access Code</div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="SuperAdminCode" class="form-label required">SuperAdmin Code</label>
+                        <input type="password" id="SuperAdminCode" name="SuperAdminCode" placeholder="Super Admin Code" class="form-control ui-input-sm" maxlength="4" autocomplete="new-password">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" style="visibility:hidden;">&nbsp;</label>
+                    <div>
+                        <button type="button" id="btnCheckCode" name="btnCheckCode" class="btn btn-info" onclick="ValidatePassword();">
+                            <span class="glyphicon glyphicon-ok"></span>Validate Code
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="ui-error mb-0">All exports below stay disabled until a valid SuperAdmin Code is entered here.</div>
+        </div>
+
+        <!-- ================= Purchase Requisitions ================= -->
+        <div class="ui-card ui-narrow-fields">
+            <div class="ui-card-title" style="display:flex; align-items:center; justify-content:space-between;">
+                <span><span class="glyphicon glyphicon-list-alt"></span>Purchase Requisitions</span>
+                <button type="button" class="btn btn-default btn-xs" onclick="ResetPRDates();" title="Clear the date range so this report can be exported without a date filter">
+                    <span class="glyphicon glyphicon-refresh"></span>Reset Dates
+                </button>
+            </div>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="PRStartDate" class="form-label">PR Start Date</label>
+                        <input type="date" id="PRStartDate" name="PRStartDate" placeholder="PR Start Date" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="PREndDate" class="form-label">PR End Date</label>
+                        <input type="date" id="PREndDate" name="PREndDate" placeholder="PR End Date" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" style="visibility:hidden;">&nbsp;</label>
+                    <div>
+                        <button type="button" disabled="disabled" id="btnExportPR" name="btnExportPR" class="btn btn-default btn-block">
+                            <span class="glyphicon glyphicon-download-alt"></span>Export PR
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= Purchase Orders ================= -->
+        <div class="ui-card ui-narrow-fields">
+            <div class="ui-card-title" style="display:flex; align-items:center; justify-content:space-between;">
+                <span><span class="glyphicon glyphicon-shopping-cart"></span>Purchase Orders</span>
+                <button type="button" class="btn btn-default btn-xs" onclick="ResetPODates();" title="Clear the date range so this report can be exported without a date filter">
+                    <span class="glyphicon glyphicon-refresh"></span>Reset Dates
+                </button>
+            </div>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="POStartDate" class="form-label">PO Start Date</label>
+                        <input type="date" id="POStartDate" name="POStartDate" placeholder="PO Start Date" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="POEndDate" class="form-label">PO End Date</label>
+                        <input type="date" id="POEndDate" name="POEndDate" placeholder="PO End Date" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" style="visibility:hidden;">&nbsp;</label>
+                    <div>
+                        <button type="button" disabled="disabled" id="btnExportPO" name="btnExportPO" class="btn btn-default btn-block">
+                            <span class="glyphicon glyphicon-download-alt"></span>Export PO
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= Purchase Order Items ================= -->
+        <div class="ui-card ui-narrow-fields">
+            <div class="ui-card-title" style="display:flex; align-items:center; justify-content:space-between;">
+                <span><span class="glyphicon glyphicon-th-list"></span>Purchase Order Items</span>
+                <button type="button" class="btn btn-default btn-xs" onclick="ResetPOItemDates();" title="Clear the date range so this report can be exported without a date filter">
+                    <span class="glyphicon glyphicon-refresh"></span>Reset Dates
+                </button>
+            </div>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="POItemStartDate" class="form-label">PO Start Date</label>
+                        <input type="date" id="POItemStartDate" name="POItemStartDate" placeholder="PO Start Date" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="POItemEndDate" class="form-label">PO End Date</label>
+                        <input type="date" id="POItemEndDate" name="POItemEndDate" placeholder="PO End Date" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" style="visibility:hidden;">&nbsp;</label>
+                    <div>
+                        <button type="button" disabled="disabled" id="btnExportPOItem" name="btnExportPOItem" class="btn btn-default btn-block">
+                            <span class="glyphicon glyphicon-download-alt"></span>Export PO Items
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= Project Exports (PO Details / Outgoing Challan) ================= -->
+        <div class="ui-card ui-narrow-fields">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-folder-open"></span>Project Exports</div>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="ProjectNameDropdown" class="form-label">Project Name</label>
+                        <select class="form-control" id="ProjectNameDropdown" name="ProjectNameDropdown"></select>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" style="visibility:hidden;">&nbsp;</label>
+                    <div>
+                        <button type="button" disabled="disabled" id="btnExportPODetails" name="btnExportPODetails" class="btn btn-default btn-block">
+                            <span class="glyphicon glyphicon-download-alt"></span>Export PO Details
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" style="visibility:hidden;">&nbsp;</label>
+                    <div>
+                        <button type="button" disabled="disabled" id="btnExportChallan" name="btnExportChallan" class="btn btn-default btn-block">
+                            <span class="glyphicon glyphicon-download-alt"></span>Export Challan Details
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= Vendor Bills ================= -->
+        <div class="ui-card ui-narrow-fields">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-usd"></span>Vendor Bills</div>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="VendorBills" class="form-label">Vendor</label>
+                        <select class="form-control" id="VendorBills" name="VendorBills"></select>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" style="visibility:hidden;">&nbsp;</label>
+                    <div>
+                        <button type="button" disabled="disabled" id="btnExportBills" name="btnExportBills" class="btn btn-default btn-block">
+                            <span class="glyphicon glyphicon-download-alt"></span>Export Bills
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= Other Exports ================= -->
+        <div class="ui-card">
+            <div class="ui-card-title"><span class="glyphicon glyphicon-list"></span>Other Exports</div>
+            <div class="row">
+                <div class="col-md-6">
+                    <button type="button" disabled="disabled" id="btnExportVendor" name="btnExportVendor" class="btn btn-default btn-block">
+                        <span class="glyphicon glyphicon-download-alt"></span>Export Vendor Details
+                    </button>
+                </div>
+                <div class="col-md-6">
+                    <button type="button" disabled="disabled" id="btnExportPendingPR" name="btnExportPendingPR" class="btn btn-default btn-block">
+                        <span class="glyphicon glyphicon-download-alt"></span>Export Pending PR Details
+                    </button>
+                </div>
+            </div>
+			@*<div class="row mt-3">
+				<div class="col-md-6">
+					<button type="button" disabled="disabled" id="btnDownloadDB" name="btnDownloadDB" class="btn btn-default btn-block">
+						<span class="glyphicon glyphicon-download-alt"></span>Download Database
+					</button>
+				</div>
+			</div>*@
+        </div>
+
+        <div id="errormessage" class="ui-error"><span></span></div>
+
+	</form> <!-- /PRForm -->
+
+</div> <!-- ./container -->
