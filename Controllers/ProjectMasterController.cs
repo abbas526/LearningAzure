@@ -1,4 +1,4 @@
-using ClosedXML.Excel;
+﻿using ClosedXML.Excel;
 using OrientalApplication.Core;
 using OrientalApplication.Models;
 using OrientalApplication.Repositories;
@@ -112,10 +112,17 @@ namespace OrientalApplication.Controllers
                     file.SaveAs(fname);
 
                     //Process Excel File and Save data in DB
-                    int x = SavePRs(fname, projectName);
+                    List<object> newlyAddedPRs;
+                    int x = SavePRs(fname, projectName, out newlyAddedPRs);
 
-                    // Returns message that successfully uploaded  
-                    return Json("Uploaded " + x + " Records");
+                    // Returns the count message AND the rows that were actually inserted, so the
+                    // "Newly Added PRs" table on the page can render them.
+                    return Json(new
+                    {
+                        Success = true,
+                        Result = "Uploaded " + x + " Records",
+                        NewlyAddedPRs = newlyAddedPRs
+                    });
                 }
                 catch (Exception ex)
                 {
@@ -146,8 +153,9 @@ namespace OrientalApplication.Controllers
             return new JsonResult { Data = projectNamesList, JsonRequestBehavior = JsonRequestBehavior.AllowGet };
         }
 
-        private int SavePRs(string fileName, string projectName)
+        private int SavePRs(string fileName, string projectName, out List<object> newlyAddedPRs)
         {
+            newlyAddedPRs = new List<object>();
 
             int x = 1;
             int count = 0;
@@ -177,6 +185,22 @@ namespace OrientalApplication.Controllers
                             PRDate = pr.PRDate;
                             _purchaseRequisitionRepository.SavePR(pr);
                             count++;
+
+                            // SavePR fills in pr.PRNo (and normalizes the dates) before insert, so
+                            // pr now reflects exactly what was written to the DB - capture it for
+                            // the "Newly Added PRs" table on the page.
+                            newlyAddedPRs.Add(new
+                            {
+                                PRNo = pr.PRNo,
+                                Item = pr.ItemDropdown,
+                                ItemSize = pr.ItemSize,
+                                Specs = pr.Specs,
+                                Quantity = pr.Quantity,
+                                Unit = pr.Unit,
+                                PRDate = pr.PRDate,
+                                DateRequired = pr.DateRequired,
+                                Remark = pr.Remark
+                            });
                         }
                         x++;
                         
