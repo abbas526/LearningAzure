@@ -18,6 +18,12 @@
     var ItemNamesList = [];
     var qaRowSeq = 0;
 
+    // Formats today's date the same way the #PRDate datepicker does (dd-mm-yy => day-month-4digit
+    // year), so PR Date can default to "today" both on page load and whenever the screen resets.
+    function TodayForPRDate() {
+        return $.datepicker.formatDate('dd-mm-yy', new Date());
+    }
+
     // Requisition Details has two mutually-exclusive modes:
     //  - Quick-add (#QuickAddPRSection): the default, for entering several new PRs in a row.
     //  - Edit (#SinglePREditSection): shown once an existing PR is loaded via the Load button.
@@ -45,11 +51,13 @@
     // values above (KSK, JB, AS, MA, CV, IS, OFMS, OMMS).
     var PRNoFormat = /^[A-Za-z]+-\d+$/;
     // Called everywhere #PRNo's value changes (load, save, new/reset, clear) - keeps the Load
-    // button and the "PR No: ..." label next to the Quick PO title both in sync with it.
+    // button and the "PR No: ..." labels next to the Quick PO title and the Item Received title
+    // both in sync with it.
     function updateLoadButtonVisibility() {
         $('#btnSearchPR').show();
         var prNo = $('#PRNo').val();
         $('#QuickPOPRNoDisplay').text(prNo ? 'PR No : ' + prNo : '');
+        $('#ItemReceivedPRNoDisplay').text(prNo ? 'PR No : ' + prNo : '');
     }
 
 	function PRAddToTable(PRNumber, Item, Qty, Size, Unit, MOC, PRDate, DateRequired, Remark, IsAllItemReceived, AssignedToPO) {
@@ -57,6 +65,13 @@
 		// for a PR that's never had the Item Received flag set, which used to render literally as
 		// the string "null"/"undefined" in this column instead of a sensible default.
 		var isAllItemReceived = (IsAllItemReceived != null && IsAllItemReceived.indexOf('yes') >= 0) ? 'yes' : 'no';
+
+		// Same story for Remark: a PR with no remark comes back as null/undefined (or the DB's
+		// literal NULL serialized as the string "null"), which used to render as that text in
+		// the table instead of a blank cell.
+		if (Remark == null || Remark === 'null' || Remark === undefined) {
+			Remark = '';
+		}
 
 		// Append product to the table
 		var newRow = $("<tr>" +
@@ -110,48 +125,62 @@
 	// and again whenever a row is added directly (SaveData, QuickAddSaveRow) without going
 	// through GetPRs, so a freshly-saved PR's Item/MOC shows up immediately too.
 	// Preserves the current selection if it's still one of the available values.
+	// Rebuilds the Item/MOC dropdowns so each only offers values that still have a matching row
+	// given the OTHER active filters - Item narrows what MOC offers, MOC narrows what Item offers,
+	// and the Colour filter narrows both - the same behaviour as an Excel column filter, instead
+	// of both dropdowns always listing every value found anywhere in the table.
 	function refreshPRTableFilterDropdowns() {
-		var uniqueItems = [];
-		var uniqueMOC = [];
+		var selectedItem = $("#ItemDropdownPRTable").val();
+		var selectedMOC = $("#MOCDropdownPRTable").val();
+		var selectedColour = $("#ColourFilterPRTable").val();
 
-		$("#PRTable tbody tr").each(function () {
+		var allRows = $("#PRTable tbody tr").map(function () {
 			var row = $(this);
-			var itemVal = row.find("td:eq(1)").text().trim();
-			var mocVal = row.find("td:eq(3)").text().trim();
+			return {
+				item: row.find("td:eq(1)").text().trim(),
+				moc: row.find("td:eq(3)").text().trim(),
+				colour: row.attr('data-rowcolour') || 'white'
+			};
+		}).get();
 
-			if (itemVal !== '' && $.inArray(itemVal, uniqueItems) === -1) {
-				uniqueItems.push(itemVal);
-			}
-			if (mocVal !== '' && $.inArray(mocVal, uniqueMOC) === -1) {
-				uniqueMOC.push(mocVal);
-			}
-		});
-		uniqueItems.sort();
-		uniqueMOC.sort();
+		function uniqueValues(rows, field) {
+			var values = [];
+			$.each(rows, function (i, r) {
+				if (r[field] !== '' && $.inArray(r[field], values) === -1) {
+					values.push(r[field]);
+				}
+			});
+			values.sort();
+			return values;
+		}
 
-		var previousItem = $("#ItemDropdownPRTable").val();
-		var previousMOC = $("#MOCDropdownPRTable").val();
+		// Item options: rows matching the current MOC + Colour filters (never Item itself).
+		var uniqueItems = uniqueValues($.grep(allRows, function (r) {
+			return (selectedMOC === "" || r.moc === selectedMOC) &&
+				(selectedColour === "" || r.colour === selectedColour);
+		}), 'item');
+
+		// MOC options: rows matching the current Item + Colour filters (never MOC itself).
+		var uniqueMOC = uniqueValues($.grep(allRows, function (r) {
+			return (selectedItem === "" || r.item === selectedItem) &&
+				(selectedColour === "" || r.colour === selectedColour);
+		}), 'moc');
 
 		$("#ItemDropdownPRTable").empty().append('<option value="">-- Select Item --</option>');
 		$.each(uniqueItems, function (i, item) {
 			$("#ItemDropdownPRTable").append('<option value="' + item + '">' + item + '</option>');
 		});
-		$("#ItemDropdownPRTable").prop("disabled", uniqueItems.length === 0);
-		if ($.inArray(previousItem, uniqueItems) !== -1) {
-			$("#ItemDropdownPRTable").val(previousItem);
-		}
+		$("#ItemDropdownPRTable").prop("disabled", allRows.length === 0);
+		$("#ItemDropdownPRTable").val($.inArray(selectedItem, uniqueItems) !== -1 ? selectedItem : '');
 
 		$("#MOCDropdownPRTable").empty().append('<option value="">-- Select MOC --</option>');
 		$.each(uniqueMOC, function (i, item) {
 			$("#MOCDropdownPRTable").append('<option value="' + item + '">' + item + '</option>');
 		});
-		$("#MOCDropdownPRTable").prop("disabled", uniqueMOC.length === 0);
-		if ($.inArray(previousMOC, uniqueMOC) !== -1) {
-			$("#MOCDropdownPRTable").val(previousMOC);
-		}
+		$("#MOCDropdownPRTable").prop("disabled", allRows.length === 0);
+		$("#MOCDropdownPRTable").val($.inArray(selectedMOC, uniqueMOC) !== -1 ? selectedMOC : '');
 
-		// Re-apply the Colour Filter (Item/MOC dropdowns above were just rebuilt, but Colour
-		// Filter isn't - honour it if one was already selected).
+		// Re-apply all three filters together now that the dropdowns above reflect them.
 		applyPRTableFilters();
 	}
 
@@ -219,15 +248,15 @@
     $(document).ready(function () {
 
         $("#ItemDropdownPRTable").change(function () {
-            applyPRTableFilters();
+            refreshPRTableFilterDropdowns();
         });
 
         $("#MOCDropdownPRTable").change(function () {
-            applyPRTableFilters();
+            refreshPRTableFilterDropdowns();
         });
 
         $("#ColourFilterPRTable").change(function () {
-            applyPRTableFilters();
+            refreshPRTableFilterDropdowns();
         });
 
         $.ajax({
@@ -252,6 +281,18 @@
                            s += '<option value="' + data[i] + '">' + data[i] + '</option>';
                        }
                        $("#VendorForPO").html(s);
+                   }
+        });
+
+        $.ajax({
+                   type: "GET",
+                   url: '@Url.Action("GetCompanyNames","PurchaseOrder")',
+                   success: function (data) {
+                       var s = '<option value="">Please Select</option>';
+                       for (var i = 0; i < data.length; i++) {
+                           s += '<option value="' + data[i] + '">' + data[i] + '</option>';
+                       }
+                       $("#CompanyForPO").html(s);
                    }
         });
 
@@ -329,6 +370,7 @@
         $('#PRDate').datepicker({
             dateFormat: "dd-mm-yy",
         });
+        $('#PRDate').val(TodayForPRDate());
         $('#DateRequired').datepicker({
             dateFormat: "dd-mm-yy",
         });
@@ -362,7 +404,7 @@
     function ClearAllFieldsAndTables() {
         // PR detail fields
         $("#UserCode").val('');
-        $("#PRDate").val('');
+        $("#PRDate").val(TodayForPRDate());
         $("#ItemDropdown").val('');
         $("#NewItem").val('');
         $("#ProjectRefDropdown").val('');
@@ -375,6 +417,7 @@
         $("#Remark").val('');
         $("#Drawing").val('');
         $("#PONumber").text('');
+        $("#QuickPOAlreadyMappedWarning").hide();
 
         // PR No + Load button
         $("#PRNo").val('');
@@ -403,6 +446,7 @@
         // Quick PO section
         $('#Rate').val('');
         $('#POQty').val('');
+        $('#CompanyForPO').val('');
         $('#VendorForPO').val('');
         $('#PORemarks').val('');
         $('#PRNumberHidden').val('');
@@ -529,6 +573,11 @@
                 $("#Unit").val(data.Unit);
                 $("#UserCode").val(data.UserCode);
 				$("#PONumber").text(data.AssociatedPONumbers);
+                // GetAllPOsForPR (Repositories/PurchaseRequisitionRepository.cs) returns the literal
+                // string "Not Mapped" - not blank - for a PR with no PO, via IFNULL(po.PONumber,'Not Mapped')
+                // in its SQL. Same sentinel PRAddToTable() already checks for on the listing grid below.
+                var poNumbersForPR = (data.AssociatedPONumbers || '').trim();
+                $("#QuickPOAlreadyMappedWarning").toggle(poNumbersForPR !== '' && poNumbersForPR !== 'Not Mapped');
                 //$("#ItemReceivedDate").val(data.ItemReceivedObj.ItemReceivedDate);
                 //$("#ItemReceivedOK").val(data.ItemReceivedObj.ItemReceivedOK);
                 //$("#ItemReceivedComment").val(data.ItemReceivedObj.ItemReceivedComment);
@@ -720,12 +769,12 @@
         if (code == '') {
             alert("Please enter Admin Code"); return false;
         }
-        // Deliberately its own field, separate from the "Purchase Requisition No" textbox up top -
-        // Delete PR always acts on #DeletePRNo, never on whatever happens to be loaded above.
-        var prNumber = $('#DeletePRNo').val();
+        // Delete only ever acts on the PR currently loaded above via Load - there's no separate
+        // "PR No to Delete" field any more, so a PR can't be deleted without first loading it.
+        var prNumber = $('#PRNo').val();
 
         if (prNumber == '') {
-            alert("Please enter PR No to Delete"); return false;
+            alert("Please load a PR before deleting it."); return false;
         }
 
         var res = confirm("Are you sure to delete the PR.");
@@ -755,8 +804,7 @@
     }
 
     function ClearScreen() {
-        $("#DeletePRNo").val('');
-        $("#PRDate").val('');
+        $("#PRDate").val(TodayForPRDate());
         $("#PRNo").val('');
         updateLoadButtonVisibility();
         $("#ProjectRefDropdown").val('');
@@ -770,6 +818,7 @@
         $("#Unit").val('');
         $("#UserCode").val('');
         $("#NewItem").val('');
+        switchToQuickAddMode();
     }
     function SaveQuickPOData() {
 
@@ -779,6 +828,10 @@
         }
         if ($('#Rate').val() == '') {
             alert("Please Enter Rate for PO");
+            return false;
+        }
+        if ($('#CompanyForPO').val() == '') {
+            alert("Please Select Company for PO");
             return false;
         }
         $("#PRNumberHidden").val($('#PRNo').val());
@@ -1047,7 +1100,7 @@
         var newRow = $('<tr>').attr('data-qarow', qaRowSeq).html(
             '<td><select class="form-control QAItem">' + QuickAddBuildItemOptionsHtml('') + '</select></td>' +
             '<td><input type="text" class="form-control QANewItem" placeholder="New Item"></td>' +
-            '<td><input type="text" class="form-control QASize" placeholder="Size"></td>' +
+            '<td><textarea class="form-control QASize" placeholder="Size" rows="1" style="resize: both; overflow: auto; min-height: 34px;"></textarea></td>' +
             '<td><input type="text" class="form-control QASpecs" placeholder="Spec/MOC"></td>' +
             '<td><input type="number" min="0" step=".01" class="form-control QAQuantity" placeholder="Qty"></td>' +
             '<td><select class="form-control QAUnit">' +
@@ -1189,7 +1242,12 @@
 
         <!-- ================= Search / Manage PR ================= -->
         <div class="ui-card">
-            <div class="ui-card-title"><span class="glyphicon glyphicon-search"></span>Find Purchase Requisition</div>
+            <div class="ui-card-title ui-card-title-with-filter">
+                <span><span class="glyphicon glyphicon-search"></span>Find Purchase Requisition</span>
+                <a href="#PRsForProjectSection" class="ui-card-title-link" title="Jump to Purchase Requisitions for Project, at the bottom of this page">
+                    Purchase Requisitions for Project<span class="glyphicon glyphicon-arrow-down"></span>
+                </a>
+            </div>
 
             <div class="row">
                 <div class="col-md-6">
@@ -1229,7 +1287,7 @@
             <!-- Shared by every row below - whether quick-adding several new PRs at once, or
                  editing the single PR loaded via Load above. -->
             <div class="row">
-                <div class="col-md-4">
+                <div class="col-md-6">
                     <div class="form-group">
                         <label for="UserCode" class="form-label required">User Code</label>
                         <select name="UserCode" id="UserCode" class="form-control ui-input-sm">
@@ -1245,18 +1303,22 @@
                         </select>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-6">
                     <div class="form-group">
                         <label for="PRDate" class="form-label required">PR Date</label>
                         <input type="text" id="PRDate" name="PRDate" autocomplete="off" readonly="readonly" class="form-control" placeholder="Select Date" />
                     </div>
                 </div>
-                <div class="col-md-4">
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
                     <div class="form-group">
                         <label for="ProjectRefDropdown" class="form-label required">Project Name</label>
                         <select class="form-control" id="ProjectRefDropdown" name="ProjectRefDropdown"></select>
                     </div>
                 </div>
+                <div class="col-md-6"></div>
             </div>
 
             <!-- ============ Editing an existing PR (shown after Load) ============ -->
@@ -1337,6 +1399,7 @@
                             <input type="text" name="Drawing" id="Drawing" placeholder="Drawing" class="form-control">
                         </div>
                     </div>
+                    <div class="col-md-6"></div>
                 </div>
 
                 <!-- ================= Save (kept in this card, alongside the fields it saves) ================= -->
@@ -1345,6 +1408,13 @@
                         <div id="message" name="message"></div>
                     </div>
                     <div class="col-md-6 btn-toolbar-right">
+                        <!-- Delete only ever acts on the PR currently loaded above via Load - never on an
+                             arbitrary typed PR No - and always requires the Admin Code. -->
+                        <input type="password" name="POAdminCode" id="POAdminCode" placeholder="Admin Code"
+                               autocomplete="new-password" value="" class="form-control ui-input-sm" style="display:inline-block; width:140px; margin-right:8px;">
+                        <button type="button" id="btnDeletePR" name="btnDeletePR" class="btn btn-danger" onclick="RemovePR();" title="Delete this loaded PR (Admin Code required)">
+                            <span class="glyphicon glyphicon-trash"></span>Delete PR
+                        </button>
                         <button type="submit" id="btnSave" name="btnSave" class="btn btn-primary" onclick="return SaveData();">
                             <span class="glyphicon glyphicon-floppy-disk"></span>Save PR
                         </button>
@@ -1388,7 +1458,11 @@
     <!-- ================= Item Received ================= -->
     <form role="form" id="ItemReceivedForm" name="ItemReceivedForm">
         <div class="ui-card">
-            <div class="ui-card-title"><span class="glyphicon glyphicon-inbox"></span>Item Received</div>
+            <div class="ui-card-title">
+                <span class="glyphicon glyphicon-inbox"></span>Item Received
+                &nbsp;&nbsp;&nbsp;
+                <span class="ui-inline-label" id="ItemReceivedPRNoDisplay"></span>
+            </div>
 
             <div class="row mb-3">
                 <div class="col-md-12">
@@ -1443,9 +1517,20 @@
                 </a>
                 &nbsp;&nbsp;&nbsp;
                 <span class="ui-inline-label" id="QuickPOPRNoDisplay"></span>
+                <span class="ui-badge" id="QuickPOAlreadyMappedWarning" style="color:#a94442; background-color:#f2dede; display:none;">PR is already mapped</span>
             </div>
 
             <div id="QuickPOSection" name="QuickPOSection">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="CompanyForPO" class="form-label required">Company</label>
+                            <select name="CompanyForPO" id="CompanyForPO" class="form-control">
+                                <option value="">Please Select</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
                 <div class="row">
                     <div class="col-md-6">
                         <div class="form-group">
@@ -1489,28 +1574,6 @@
         </div>
     </form> <!-- /POForm -->
 
-    <!-- ================= Admin Action (relocated from Find/Create Purchase Requisition) ================= -->
-    <div class="ui-card">
-        <div class="ui-card-title"><span class="glyphicon glyphicon-lock"></span>Admin Action</div>
-        <div class="row">
-            <div class="col-md-3">
-                <!-- Deliberately separate from the "Purchase Requisition No" textbox up top - Delete
-                     PR always acts on whatever PR No is entered here, never on whatever's loaded above. -->
-                <input type="text" name="DeletePRNo" id="DeletePRNo" placeholder="PR No to Delete"
-                       autocomplete="off" class="form-control ui-input-sm">
-            </div>
-            <div class="col-md-3">
-                <input type="password" name="POAdminCode" id="POAdminCode" placeholder="Admin Code"
-                       autocomplete="new-password" value="" class="form-control ui-input-sm">
-            </div>
-            <div class="col-md-3">
-                <button type="button" name="RemovePRButton" id="RemovePRButton" class="btn btn-danger" onclick="RemovePR();">
-                    <span class="glyphicon glyphicon-trash"></span>Delete PR
-                </button>
-            </div>
-        </div>
-    </div>
-
     <!-- ================= Browse Old Project PRs (lookup only - not part of creating a new PR) ================= -->
     <div class="ui-card">
         <div class="ui-card-title"><span class="glyphicon glyphicon-time"></span>Browse Old Project PRs</div>
@@ -1532,7 +1595,7 @@
     </div>
 
     <!-- ================= PRs for Project ================= -->
-    <div class="ui-card">
+    <div class="ui-card" id="PRsForProjectSection">
         <div class="ui-card-title ui-card-title-with-filter">
             <span><span class="glyphicon glyphicon-th-list"></span>Purchase Requisitions for Project &nbsp; </span>
             <div class="input-group ui-project-filter-group">

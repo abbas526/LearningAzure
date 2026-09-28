@@ -39,6 +39,12 @@
 <script>
     var projectArr = [];
 
+    // Formats today's date the same way the #PODate datepicker does (dd-mm-yy => day-month-4digit
+    // year), so PO Date can default to "today" both on page load and whenever the screen resets.
+    function TodayForPODate() {
+        return $.datepicker.formatDate('dd-mm-yy', new Date());
+    }
+
     function ExportPRsForPO() {
         var url = '@Url.Action("WritePRsForPOItemToExcel", "Report")';
         var poNumber = $('#PONumber').val();
@@ -167,7 +173,7 @@
         $('#PONumber').val('');
         $('#Company').val($("#Company option:first").val());
 
-        $('#PODate').val('');
+        $('#PODate').val(TodayForPODate());
         $('#ProjectRef').val($("#ProjectRef option:first").val());
         $('#Vendor').val($("#Vendor option:first").val());
         $('#QuoteRef').val('');
@@ -184,6 +190,16 @@
         RenderProjectChips();
         $('#finalTotal').text('0.00');
         $('#POAmount').val('');
+        $('#BillingSection').hide();
+    }
+
+    function ToggleBillingSection() {
+        if ($('#BillingSection').is(":visible")) {
+            $('#BillingSection').hide();
+        }
+        else {
+            $('#BillingSection').show();
+        }
     }
 
     function GeneratePONumber() {
@@ -347,12 +363,12 @@
 		});
 
 
-        // Auto-recalculate the Total Amount whenever PO Qty, Rate or Discount is edited, instead of
-        // requiring an explicit "Calculate Total" click every time. Both "change" and "blur" are
-        // bound (not just blur) because blur alone was occasionally missing the very first edit on
-        // a freshly-added row - "change" fires reliably as soon as the value commits (including via
-        // the number input's spinner arrows), so the total is never left stale.
-        $('#PRTable').on('blur change', 'input[id^="POQty_"], input[id^="Rate_"], input[id^="Discount_"]', function () {
+        // Recalculate the Total Amount whenever a row's Select checkbox is ticked or unticked,
+        // rather than on every PO Qty / Rate / Discount edit - checking/unchecking a row is now
+        // the single trigger that adds it to (or drops it from) the grand total. The Calculate
+        // Total icon button still recalculates on demand, e.g. after editing a value on an
+        // already-checked row.
+        $('#PRTable').on('change', 'input[id^="PRChk_"]', function () {
             CalculateTotals();
         });
 
@@ -414,6 +430,8 @@
         $('#PODate').datepicker({
             dateFormat: "dd-mm-yy",
         });
+        $('#PODate').val(TodayForPODate());
+        $('#BillingSection').hide();
         $('#DeliveryRequiredBy').datepicker({
             dateFormat: "dd-mm-yy",
         });
@@ -718,7 +736,7 @@
                                 <button class="btn btn-info" type="button" onclick="LoadData();" title="Load this PO">
                                     <span class="glyphicon glyphicon-search"></span>Load
                                 </button>
-                                <button class="btn btn-default" type="button" onclick="PrintPO();" title="Print PO">
+                                <button class="btn btn-default" type="button" id="PrintPOButton" onclick="PrintPO();" title="Print PO">
                                     <span class="glyphicon glyphicon-print"></span>
                                 </button>
                                 <button class="btn btn-default" type="button" onclick="ExportPRsForPO();" title="Export PRs for PO to Excel">
@@ -888,7 +906,7 @@
                             <th>PO Qty</th>
                             <th>Rate</th>
                             <th>Discount</th>
-                            <th>Select</th>
+                            <th style="width:60px; text-align:center;">Select</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -906,8 +924,10 @@
                             <td>&nbsp;</td>
                             <td>Total</td>
                             <td><span id="finalTotal">0.00</span></td>
-                            <td>
-                                <button type="button" id="CalculateTotal" name="CalculateTotal" class="btn btn-info btn-xs" onclick="CalculateTotals();">Calculate Total</button>
+                            <td style="text-align:center;">
+                                <button type="button" id="CalculateTotal" name="CalculateTotal" class="btn btn-info ui-calc-btn" onclick="CalculateTotals();" title="Calculate Total">
+                                    <span class="glyphicon glyphicon-usd"></span>
+                                </button>
                             </td>
                         </tr>
                     </tfoot>
@@ -935,28 +955,38 @@
 
         <!-- ================= Billing ================= -->
         <div class="ui-card ui-narrow-fields">
-            <div class="ui-card-title"><span class="glyphicon glyphicon-usd"></span>Billing</div>
-
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label for="BillAmount" class="form-label">Bill Amount</label>
-                        <input type="text" name="BillAmount" id="BillAmount" placeholder="Bill Amount" class="form-control">
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label for="BillNoAndDate" class="form-label">Bill No &amp; Date</label>
-                        <input type="text" name="BillNoAndDate" id="BillNoAndDate" placeholder="Bill No And Date" class="form-control">
-                    </div>
-                </div>
+            <div class="ui-card-title">
+                <span class="glyphicon glyphicon-usd"></span>Billing
+                &nbsp;
+                <!-- href="javascript:void(0);" (not "#") so clicking this doesn't jump the page to
+                     the top and lose your place - just toggles the section below. -->
+                <a id="ExpandBillingLink" name="ExpandBillingLink" href="javascript:void(0);" class="ui-toggle-link" onclick="ToggleBillingSection();">
+                    <span class="glyphicon glyphicon-resize-vertical"></span>Expand / Collapse
+                </a>
             </div>
 
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label for="PaymentDate" class="form-label">Payment Date</label>
-                        <input type="text" name="PaymentDate" autocomplete="off" id="PaymentDate" placeholder="Payment Date" class="form-control">
+            <div id="BillingSection" name="BillingSection">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="BillAmount" class="form-label">Bill Amount</label>
+                            <input type="text" name="BillAmount" id="BillAmount" placeholder="Bill Amount" class="form-control">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="BillNoAndDate" class="form-label">Bill No &amp; Date</label>
+                            <input type="text" name="BillNoAndDate" id="BillNoAndDate" placeholder="Bill No And Date" class="form-control">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="PaymentDate" class="form-label">Payment Date</label>
+                            <input type="text" name="PaymentDate" autocomplete="off" id="PaymentDate" placeholder="Payment Date" class="form-control">
+                        </div>
                     </div>
                 </div>
             </div>

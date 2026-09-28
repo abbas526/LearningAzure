@@ -252,6 +252,36 @@
     padding-top: 16px;
 }
 
+/* -- Prominent icon-only "recalculate grand total" button (e.g. Items for this PO) - bigger and
+      more visible than a plain .btn-xs text button, since it replaces one that used to say
+      "Calculate Total" in words; the column that holds it shrinks once the label is gone. ------- */
+.ui-modern .ui-calc-btn {
+    padding: 8px 14px;
+    font-size: 15px;
+    line-height: 1;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+    .ui-modern .ui-calc-btn .glyphicon {
+        margin-right: 0;
+        font-size: 16px;
+    }
+
+/* -- Light green highlight for the Print PO button, so it stands out among the other icon
+      buttons (Load / Print / Export) docked next to the PO Number field --------------------- */
+.ui-modern #PrintPOButton {
+    background-color: #e6f6ec;
+    border-color: #b7ebc6;
+    color: #1e7e34;
+}
+
+    .ui-modern #PrintPOButton:hover,
+    .ui-modern #PrintPOButton:focus {
+        background-color: #d3f0dd;
+        border-color: #a0dfb5;
+        color: #155724;
+    }
+
 /* -- Softer red for a destructive-but-routine action (e.g. Delete PR) - a light pastel red
       instead of Bootstrap's alarming brick-red .btn-danger; dark text for contrast on the
       light background ---------------------------------------------------------------------- */
@@ -295,6 +325,20 @@
         width: 260px;
         flex: 0 0 auto;
     }
+
+    /* Plain link docked to the right of a card title (no filter control involved), e.g. the
+       jump-to-PR-listing shortcut on "Find Purchase Requisition". */
+    .ui-modern .ui-card-title-with-filter .ui-card-title-link {
+        margin-left: auto;
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+        .ui-modern .ui-card-title-with-filter .ui-card-title-link .glyphicon {
+            margin-left: 4px;
+            font-size: 11px;
+        }
 
 /* -- Inline label next to a value (e.g. "Linked PO:"), darker/larger than .text-muted */
 .ui-modern .ui-inline-label {

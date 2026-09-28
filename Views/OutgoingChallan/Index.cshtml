@@ -17,6 +17,14 @@
 <script>
     var Id = 0;
     var ProjectNames;
+
+    // Formats today's date the same way the #ChallanDate datepicker does (dd-mm-yy => day-month-
+    // 4digit year), so Challan Date can default to "today" on page load and whenever "New
+    // Challan" generates a fresh Challan Number.
+    function TodayForChallanDate() {
+        return $.datepicker.formatDate('dd-mm-yy', new Date());
+    }
+
     $(document).ready(function () {
 
         $.ajax({
@@ -45,6 +53,7 @@
         $('#ChallanDate').datepicker({
             dateFormat: "dd-mm-yy",
         });
+        $('#ChallanDate').val(TodayForChallanDate());
         $('#ReceivedDate').datepicker({
             dateFormat: "dd-mm-yy",
         });
@@ -78,6 +87,7 @@
         }
         ClearScreen();
         $('#Company').val(c);
+        $('#ChallanDate').val(TodayForChallanDate());
         $.ajax({
             url: '/OutgoingChallan/GenerateChallanNo',
             type: 'GET',
@@ -479,6 +489,9 @@
                 <div class="col-md-6">
                     <label class="form-label" style="visibility:hidden;">&nbsp;</label>
                     <div style="display:flex; align-items:center; gap:15px;">
+                        <button type="button" id="AddNewButton" name="AddNewButton" class="btn btn-default" onclick="AddNew();" title="Generate a new Challan Number for the selected Company and start a fresh Challan">
+                            <span class="glyphicon glyphicon-plus"></span>New Challan
+                        </button>
                         <button type="button" id="ClearButton" name="ClearButton" class="btn btn-default" onclick="ClearScreen();" title="Clear everything and return to a fresh screen">
                             <span class="glyphicon glyphicon-erase"></span>Clear All
                         </button>
@@ -489,12 +502,7 @@
 
         <!-- ================= Challan Details ================= -->
         <div class="ui-card ui-narrow-fields">
-            <div class="ui-card-title" style="display:flex; align-items:center;">
-                <span class="glyphicon glyphicon-list-alt"></span>Challan Details
-                <button type="button" id="AddNewButton" name="AddNewButton" class="btn btn-default btn-sm" style="margin-left:28px;" onclick="AddNew();" title="Generate a new Challan Number for the selected Company and start a fresh Challan">
-                    <span class="glyphicon glyphicon-plus"></span>New Challan
-                </button>
-            </div>
+            <div class="ui-card-title"><span class="glyphicon glyphicon-list-alt"></span>Challan Details</div>
 
             <div class="row">
                 <div class="col-md-6">

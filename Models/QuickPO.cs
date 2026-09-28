@@ -15,5 +15,7 @@ namespace OrientalApplication.Models
 
         public string PORemarks { get; set; }
 
+        public string CompanyForPO { get; set; }
+
     }
 }

@@ -243,6 +243,11 @@ namespace OrientalApplication.Controllers
                     pr.Result = msg;
                     return Json(pr, JsonRequestBehavior.AllowGet);
                 }
+                if (string.IsNullOrEmpty(quickPO.CompanyForPO))
+                {
+                    pr.Result = "Error: Company is required for PO";
+                    return Json(pr, JsonRequestBehavior.AllowGet);
+                }
             }
 
             try
@@ -260,7 +265,7 @@ namespace OrientalApplication.Controllers
                 po.DeliveryRequiredAt = "Not Applicable";
                 po.TransportationCharges = "Not Applicable";
                 po.PaymentTerms = "Not Applicable";
-                po.Company = "Not Applicable";
+                po.Company = quickPO.CompanyForPO;
                 double amt = 0.00;
                 if(!string.IsNullOrEmpty(quickPO.POQty))
                 {
