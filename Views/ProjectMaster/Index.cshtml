@@ -221,6 +221,11 @@
         // Adding one more key to FormData object
         fileData.append('projectname', $('#ProjectName').val());
 
+        // Disable the button and show an in-progress label for the duration of the upload,
+        // regardless of whether it ultimately succeeds or fails.
+        $('#btnFileUpload').prop('disabled', true);
+        $('#UploadStatusMessage').show();
+
         $.ajax({
             url: '/ProjectMaster/UploadPRFile',
             type: "POST",
@@ -244,6 +249,11 @@
                 $('#UploadedPRTable tbody').empty();
                 $('#UploadedPRsSection').hide();
                 alert(err.statusText);
+            },
+            complete: function () {
+                // Runs after either success or error, so the button/label always reset.
+                $('#btnFileUpload').prop('disabled', false);
+                $('#UploadStatusMessage').hide();
             }
         });
     }
@@ -377,6 +387,9 @@
                         <button type="button" id="btnFileUpload" name="btnFileUpload" class="btn btn-info" onclick="UploadPR();">
                             <span class="glyphicon glyphicon-upload"></span>Upload PRs
                         </button>
+                        <span id="UploadStatusMessage" style="display:none; margin-left:10px; font-style:italic; color:#337ab7;">
+                            <span class="glyphicon glyphicon-refresh"></span> Upload started...
+                        </span>
                     </div>
                 </div>
                 <div class="col-md-4">

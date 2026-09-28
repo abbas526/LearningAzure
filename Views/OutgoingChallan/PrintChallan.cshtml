@@ -1,8 +1,160 @@
-﻿@model OrientalApplication.Models.ChallanPrintViewModel
+@model OrientalApplication.Models.ChallanPrintViewModel
+@{
+    Layout = null;
+}
 <html>
 <head>
-    <link href="~/Content/PO_19Oct23_1.css" rel="stylesheet" />
+    <link href="~/Content/PrintChallan_Professional.css" rel="stylesheet" />
     <script src="~/Scripts/jquery-3.4.1.js"></script>
+</head>
+<body>
+    <div class="challan-toolbar">
+        <button type="button" id="printIconButton" class="challan-icon-button" onclick="printTwoCopies()" title="Print">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                <rect x="6" y="14" width="12" height="8"></rect>
+            </svg>
+        </button>
+        <button type="button" id="closeButton" class="challan-close-button" onclick="window.close()" title="Close this window">&times; Close</button>
+    </div>
+    @{
+        var companyName = Model.POCompany.CompanyName;
+        var isFabritech = companyName.ToLower().Contains("fabritech");
+        var color = isFabritech ? "rgb(31, 36, 102)" : "rgb(245, 129, 28)";
+    }
+    <div class="challan-page">
+
+        <div class="challan-letterhead">
+            <div class="challan-letterhead-cell challan-letterhead-logo">
+                @if (isFabritech)
+                {
+                    <img src="~/Images/LogoFab.png" width="53" height="50" />
+                }
+                else
+                {
+                    <img src="~/Images/Logo.jpg" width="57" height="65" />
+                }
+            </div>
+            <div class="challan-letterhead-cell">
+                <div class="challan-company-name" style="color: @color !important;">@Model.POCompany.CompanyName</div>
+            </div>
+            <div class="challan-letterhead-cell challan-letterhead-logo challan-letterhead-logo-right">
+                <img src="~/Images/Austria.jpg" width="50" height="50" />
+            </div>
+        </div>
+
+        <div class="challan-accent-rule" style="background: @color !important;"></div>
+
+        <div class="challan-corporate-address">
+            <b>Reg. Office:</b> 208 Comet, Guru Nanak Road, Bandra (West), Mumbai  400050.
+        </div>
+        <div class="challan-corporate-address">
+            <b>Works:</b> @Model.POCompany.CompanyAddress
+        </div>
+        <div class="challan-corporate-address">
+            <b>GSTIN No:</b> @Model.POCompany.GSTNo
+        </div>
+
+        <div class="challan-title-band">
+            <div class="challan-title-band-cell">
+                <span class="challan-title" style="color: @color !important;">Delivery Challan</span>
+            </div>
+            <div class="challan-title-band-cell challan-meta">
+                <div class="challan-meta-row"><span class="challan-meta-label">Date:</span><span class="challan-meta-value">@Model.Challan.ChallanDate</span></div>
+                <div class="challan-meta-row"><span class="challan-meta-label">Challan No:</span><span class="challan-meta-value">@Model.Challan.ChallanNumber</span></div>
+            </div>
+        </div>
+
+        <div class="challan-subtitle">Returnable Goods &nbsp; <span class="challan-copy-type" id="PrintType" name="PrintType"></span></div>
+
+        <div class="challan-line-group">
+            <div class="challan-line"><span class="challan-label">Vehicle No: </span>@(Model.Challan.VehicleNumber ?? "")</div>
+            <div class="challan-line"><span class="challan-label">EWay Bill No: </span>@(Model.Challan.EWayBillNo ?? "")</div>
+        </div>
+
+        <div class="challan-panel">
+            <div class="challan-section-label" style="background: @color !important;">Vendor Details</div>
+            <div class="challan-panel-body">
+                <div class="challan-panel-col">
+                    <div><span class="challan-field-label">Vendor: </span><span class="challan-field-value">@(Model.POVendor != null ? Model.POVendor.VendorName : "")</span></div>
+                    <div><span class="challan-field-label">Contact Person: </span>@(Model.POVendor != null ? Model.POVendor.ContactPerson : "")</div>
+                    <div><span class="challan-field-label">Contact Number: </span>@(Model.POVendor != null ? Model.POVendor.ContactNumber : "")</div>
+                    <div><span class="challan-field-label">Email: </span>@(Model.POVendor != null ? Model.POVendor.Email : "")</div>
+                </div>
+                <div class="challan-panel-col">
+                    <div><span class="challan-field-label">Vendor Address: </span>@(Model.POVendor != null ? Model.POVendor.Address : "")</div>
+                    <div><span class="challan-field-label">Vendor GST: </span>@(Model.POVendor != null ? Model.POVendor.GST : "")</div>
+                    <div><span class="challan-field-label">Vendor MSME: </span>@(Model.POVendor != null ? Model.POVendor.VendorMSME : "")</div>
+                </div>
+            </div>
+        </div>
+
+        <table class="challan-items">
+            <thead>
+                <tr style="background: @color !important;">
+                    <th class="challan-col-center">SL</th>
+                    <th>Project</th>
+                    <th>Description of Goods</th>
+                    <th class="challan-col-center">HSN/SAC</th>
+                    <th class="challan-col-center">Quantity</th>
+                    <th class="challan-col-right">Rate</th>
+                    <th class="challan-col-right">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                @{
+                    var counter = 1;
+                }
+                @foreach (var x in Model.Challan.OutgoingChallanItems)
+                {
+                    <tr>
+                        <td class="challan-col-center">@counter</td>
+                        <td>@x.ProjectName</td>
+                        <td>@x.ItemDescription</td>
+                        <td class="challan-col-center">@x.HSN</td>
+                        <td class="challan-col-center">@x.Quantity</td>
+                        <td class="challan-col-right">@x.Rate</td>
+                        <td class="challan-col-right">@x.Amount</td>
+                    </tr>
+                    counter++;
+                }
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="6" class="challan-total-label">Total</td>
+                    <td class="challan-total-amount">@Model.Challan.FinalAmount</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div class="challan-line"><span class="challan-label">Value of Material: </span>@(Model.Challan.ValueOfMaterial ?? "")</div>
+
+        <div class="challan-notes">
+            <span class="challan-label">Notes</span>: @(Model.Challan.Comment ?? "")
+        </div>
+
+        <div class="challan-signoff-note">Please sign &amp; return the duplicate copy.</div>
+
+        <div class="challan-footer">
+            <div class="challan-footer-col challan-footer-contact">
+                <div><span class="challan-label">Issued By:</span> @Model.POCompany.ContactPerson</div>
+                <div>@Model.POCompany.Email</div>
+                <div>Contact: @Model.POCompany.ContactPersonNumber</div>
+            </div>
+            <div class="challan-footer-col challan-signature-block">
+                <div class="challan-signature-line">&nbsp;</div>
+                <div class="challan-signature-caption">Authorized Signatory &mdash; @Model.POCompany.CompanyName</div>
+            </div>
+        </div>
+
+        <div class="challan-doc-footnote">This is a system-generated Delivery Challan.</div>
+
+    </div>
+
+    <div class="challan-print-bar">
+        <button onclick="printTwoCopies()" id="printButton" name="printButton">Click to Print</button>
+    </div>
     <script>
         function printTwoCopies() {
             $('#printButton').hide();
@@ -25,8 +177,6 @@
                     history.replaceState(history.state, '', '/');
                     window.print();
                     history.replaceState(history.state, '', curURL);
-
-                    //window.print();
                 }
             }
 
@@ -43,155 +193,5 @@
             printPage();
         }
     </script>
-
-</head>
-<body>
-    <div class="book">
-        <div class="page">
-            <div class="subpage">
-                <div class="companyheader">
-                    <table border="0" width="100%">
-                        <tr>
-                            <td width="100%" style="text-align:center">
-                                @if (Model.POCompany.CompanyName.ToLower().Contains("fabritech"))
-                                {
-                                    <img src="~/Images/LogoFab.png" width="63" height="60" />
-                                }
-                                else
-                                {
-                                    <img src="~/Images/Logo.jpg" width="67" height="74" />
-                                }
-
-                                @Model.POCompany.CompanyName &nbsp;&nbsp;&nbsp;&nbsp;
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-
-                <div class="corporateaddress">
-                    <b>Reg. Office:</b>	208 Comet, Guru Nanak Road, Bandra (West), Mumbai 400050.
-                </div>
-                <div class="corporateaddress">
-                    <b>Works:&nbsp;</b>	@Model.POCompany.CompanyAddress
-                </div>
-                <div class="corporateaddress">
-                    <b>Telephone:&nbsp;</b>26454970 &nbsp;&nbsp;&nbsp;
-                    <b>Email:&nbsp;</b>@Model.POCompany.Email
-                </div>
-                <br /><br />
-                <div align=center class="regularbold">
-                    <b>Delivery Challan</b>
-                </div>
-                <div align="center" class="regular">
-                    RETURNABLE GOODS &nbsp;&nbsp;<span id="PrintType" name="PrintType"></span>
-                </div>
-                <div>
-                    <br><br><br>
-                </div>
-                <div align="left" class="regular">
-                    <b>Challan Number:</b> @Model.Challan.ChallanNumber
-                    <span style="width: 300px; display: inline-block"></span>
-                    <b>Dated:</b>&nbsp;@Model.Challan.ChallanDate
-                    <br>
-                    <br />
-                    <b>Vendor Name: </b> @(Model.POVendor!=null ? Model.POVendor.VendorName : "")<br>
-                    <b>Contact Person: </b> @(Model.POVendor != null ? Model.POVendor.ContactPerson : "") <br>
-                    <b>Vendor Address: </b> @(Model.POVendor != null ? Model.POVendor.Address : "")<br>
-                    <b>Telephone:</b> @(Model.POVendor != null ? Model.POVendor.ContactNumber : "")
-                    <span style="width: 100px; display: inline-block"></span>
-                    <b>Email: </b>@(Model.POVendor != null ? Model.POVendor.Email : "")<br>
-                    <b>Vendor GST: </b>@(Model.POVendor != null ? Model.POVendor.GST : "")<br><br />
-                </div>
-                <div class="regular">
-                    <b>Vehicle No: </b>@(Model.Challan.VehicleNumber != null ? Model.Challan.VehicleNumber : "")
-                    <span style="width: 100px; display: inline-block"></span>
-                    <b>EWay Bill No: </b>@(Model.Challan.EWayBillNo != null ? Model.Challan.EWayBillNo : "")<br>
-
-                    <br>
-
-                </div>
-                <table class="podetails" width="100%" align="center" border="1px" cellpadding="0px" cellspacing="0px">
-                    <thead>
-                        <tr>
-                            <th>SL</th>
-                            <th>Project</th>
-                            <th>Description Of Goods</th>
-                            <th>HSN/SAC</th>
-                            <th>Quantity</th>
-                            <th>Rate</th>
-                            <th>Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @{
-                            var counter = 1;
-                        }
-                        @foreach (var x in Model.Challan.OutgoingChallanItems)
-                        {
-
-                            <tr>
-                                <td align="center">@counter</td>
-                                <td align="center">@x.ProjectName</td>
-                                <td align="center" style="max-width: 180px; word-wrap: break-word; padding: 5px; ">@x.ItemDescription</td>
-                                <td align="center">@x.HSN</td>
-                                <td align="center">@x.Quantity</td>
-                                <td align="center">@x.Rate</td>
-                                <td align="center">@x.Amount</td>
-                            </tr>
-                            counter++;
-                        }
-
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <th>&nbsp;</th>
-                            <th>&nbsp;</th>
-                            <th>&nbsp;</th>
-                            <th>&nbsp;</th>
-                            <th>&nbsp;</th>
-                            <th style="padding-left: 5px;">Total</th>
-                            <th style="padding-left: 5px;">@Model.Challan.FinalAmount</th>
-                        </tr>
-                    </tfoot>
-                </table>
-
-                <br />
-                <div class="regular">
-                    <b>Value of Material: @(Model.Challan.ValueOfMaterial != null ? Model.Challan.ValueOfMaterial : "")</b>
-                    <br><br />
-                </div>
-                <div class="regular">
-                    <b>Notes: </b>@(Model.Challan.Comment != null ? Model.Challan.Comment : "")
-                    <br><br />
-                </div>
-                <div class="regular">
-                    <b>Please Sign & Return the Duplicate Copy</b>
-                </div>
-                <br />
-                <br />
-                <div class="regular">
-                    <b>GST No:</b> @Model.POCompany.GSTNo
-                </div>
-                <br><br>
-                <div class="regular">
-                    For @Model.POCompany.CompanyName
-
-                    <br>
-                    <br>
-                    <br>
-                    @Model.POCompany.ContactPerson<br>
-                    Tel: @Model.POCompany.ContactPersonNumber
-                </div>
-                <button onclick="printTwoCopies()" id="printButton" name="printButton">Click to Print</button>
-                <script>
-                    function display() {
-                        $('#printButton').hide();
-                        window.print();
-                    }
-                </script>
-            </div>
-
-        </div>
-    </div>
 </body>
 </html>
