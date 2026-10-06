@@ -252,6 +252,7 @@
     <Compile Include="Utility.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="AdminTool.html" />
     <Content Include="Content\bootstrap-theme.css" />
     <Content Include="Content\bootstrap-theme.min.css" />
     <Content Include="Content\bootstrap.css" />
