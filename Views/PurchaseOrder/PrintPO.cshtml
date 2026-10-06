@@ -141,7 +141,7 @@
         <div class="po-line"><span class="po-label">HSN No: </span>@Model.PO.HSNNo</div>
 
         <div class="po-notes">
-            <span class="po-label">Notes</span>:<br />@Html.Raw(Model.PO.PORemarks.Replace("  ", " " + "<br>"))
+            <span class="po-label">Notes</span>:<br />@Html.Raw((Model.PO.PORemarks ?? "").Replace("  ", " " + "<br>"))
         </div>
 
         <div class="po-terms">
